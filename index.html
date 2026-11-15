@@ -67,6 +67,10 @@ input[type=date],input[type=number]{color-scheme:dark}
 .nav-item.active{color:var(--mint);background:var(--mint-soft);font-weight:600}
 .nav-group{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:15px 26px 5px;user-select:none}
 .nav-group:first-child{padding-top:4px}
+.nav-search{display:flex;align-items:center;gap:8px;margin:4px 12px 6px;padding:9px 12px;background:var(--panel);border:1px solid var(--border);border-radius:10px;color:var(--muted)}
+.nav-search i{font-size:16px;flex-shrink:0}
+.nav-search input{border:none;background:none;outline:none;color:var(--text);font-size:13px;width:100%;font-family:inherit}
+.nav-search input::placeholder{color:var(--muted)}
 .nav-item i{font-size:19px;flex-shrink:0}
 .sync-btn{margin:8px 14px 4px;padding:10px 12px;background:var(--panel);border:1px solid var(--border-2);border-radius:11px;color:var(--mint);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:600}
 .sync-btn:hover{background:var(--panel-2)}
@@ -407,9 +411,9 @@ html,body{overflow-x:hidden;max-width:100vw}
       <button class="menu-close" onclick="closeSidebar()" aria-label="Cerrar menú"><i class="ti ti-x"></i></button>
     </div>
     <nav class="nav">
+      <div class="nav-search"><i class="ti ti-search"></i><input id="nav-buscar" type="text" placeholder="Buscar en el menú..." oninput="filtrarMenu(this.value)" autocomplete="off"></div>
       <div class="nav-group">Resumen</div>
       <div class="nav-item active" onclick="show('dashboard',this)"><i class="ti ti-layout-dashboard"></i> Dashboard</div>
-      <div class="nav-item" onclick="show('resultados',this)"><i class="ti ti-chart-bar"></i> Resultados</div>
       <div class="nav-item" onclick="show('balance',this)"><i class="ti ti-report-money"></i> Balance del año</div>
 
       <div class="nav-group">Asistentes IA</div>
@@ -493,20 +497,6 @@ html,body{overflow-x:hidden;max-width:100vw}
         <div class="card">
           <div class="card-header"><span class="card-title">Cartera pendiente</span><button class="btn btn-sm" onclick="show('clientes')">Ver todos</button></div>
           <div id="dash-clientes" class="dash-list"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ESTADO DE RESULTADOS -->
-    <div class="page" id="page-resultados">
-      <div class="er-cards" id="er-cards"></div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">Comparativo mensual</span></div>
-        <div class="table-wrap">
-          <table class="er-table">
-            <thead><tr><th>Concepto</th><th id="er-th-0"></th><th id="er-th-1"></th><th id="er-th-2"></th><th id="er-th-3"></th><th id="er-th-4"></th><th id="er-th-5"></th></tr></thead>
-            <tbody id="er-body"></tbody>
-          </table>
         </div>
       </div>
     </div>
@@ -944,6 +934,24 @@ html,body{overflow-x:hidden;max-width:100vw}
           <div class="form-group"><label>Precio venta actual</label><input id="verif-venta" type="number" placeholder="0" oninput="verificarMargen()"></div>
         </div>
         <div id="verif-result" style="margin-top:8px;font-size:14px;font-weight:600;color:var(--pink)"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="ti ti-building-store"></i> Precio para vender en plataforma (comisión + IVA)</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Si una plataforma (Luegopago, VTEX…) te cobra comisión, calcula a qué precio publicar para que te quede lo que quieres, con el IVA sumado.</div>
+        <div class="form-row">
+          <div class="form-group"><label>Cuánto quiero recibir ($)</label><input id="plat-recibir" type="number" placeholder="0" inputmode="numeric" oninput="calcPlataforma()"></div>
+          <div class="form-group"><label>Comisión plataforma (%)</label><input id="plat-comision" type="number" placeholder="0" inputmode="decimal" oninput="calcPlataforma()"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>IVA (%)</label><input id="plat-iva" type="number" value="19" inputmode="decimal" oninput="calcPlataforma()"></div>
+          <div class="form-group" style="display:flex;align-items:flex-end"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin:0"><input id="plat-usa-iva" type="checkbox" checked onchange="calcPlataforma()" style="width:auto;margin:0"> Sumar el IVA al precio</label></div>
+        </div>
+        <div class="calc-result" id="plat-result">
+          <div class="calc-item"><div class="calc-item-label">Precio a publicar</div><div class="calc-item-value" id="plat-precio" style="color:var(--pink)">—</div></div>
+          <div class="calc-item"><div class="calc-item-label">Comisión plataforma</div><div class="calc-item-value" id="plat-comi">—</div></div>
+          <div class="calc-item"><div class="calc-item-label">IVA</div><div class="calc-item-value" id="plat-ivaval">—</div></div>
+          <div class="calc-item"><div class="calc-item-label">Te queda</div><div class="calc-item-value" id="plat-neto" style="color:#1a7a3a">—</div></div>
+        </div>
       </div>
     </div>
 
@@ -1419,6 +1427,41 @@ function despertarSheet(){
 }
 
 // NAVEGACIÓN
+function calcPlataforma(){
+  var g=function(id){ return document.getElementById(id); };
+  var set=function(id,val){ var e=g(id); if(e) e.textContent=val; };
+  var R=parseFloat(g('plat-recibir').value)||0;
+  var c=parseFloat(g('plat-comision').value)||0;
+  var iva=parseFloat(g('plat-iva').value)||0;
+  var usaIva=g('plat-usa-iva').checked;
+  if(R<=0 || c>=100){ ['plat-precio','plat-comi','plat-ivaval','plat-neto'].forEach(function(id){ set(id,'—'); }); return; }
+  var subtotal=R/(1-c/100);     // precio que, al quitarle la comisión, te deja R
+  var comision=subtotal-R;       // = c% del subtotal
+  var ivaVal=usaIva?subtotal*(iva/100):0;
+  var precio=subtotal+ivaVal;
+  set('plat-precio', fmt(Math.round(precio)));
+  set('plat-comi', fmt(Math.round(comision)));
+  set('plat-ivaval', usaIva?fmt(Math.round(ivaVal)):'—');
+  set('plat-neto', fmt(Math.round(R)));
+}
+function filtrarMenu(q){
+  q=(q||'').trim().toLowerCase();
+  var nav=document.querySelector('.nav'); if(!nav) return;
+  nav.querySelectorAll('.nav-item').forEach(function(it){
+    var oc=it.getAttribute('onclick')||'';
+    if(oc.indexOf('cerrarSesion')>-1) return; // Cerrar sesión siempre visible
+    var txt=(it.textContent||'').toLowerCase();
+    it.style.display=(!q||txt.indexOf(q)>-1)?'':'none';
+  });
+  nav.querySelectorAll('.nav-group').forEach(function(g){
+    var vis=false, el=g.nextElementSibling;
+    while(el && !el.classList.contains('nav-group')){
+      if(el.classList.contains('nav-item') && el.style.display!=='none'){ vis=true; break; }
+      el=el.nextElementSibling;
+    }
+    g.style.display=(!q||vis)?'':'none';
+  });
+}
 function show(page,el) {
   // Si salimos del asistente, devolver el chat a su lugar (body, flotante)
   var panel=document.getElementById('chat-panel');
@@ -2290,6 +2333,7 @@ function renderContabilidad() {
 }
 
 function renderResultados() {
+  if(!document.getElementById('er-body')) return; // página Resultados removida
   const er=db.er||ER_BASE;
   const meses=er.meses||ER_BASE.meses;
   const mesActual=new Date().getMonth();

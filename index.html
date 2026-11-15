@@ -65,6 +65,8 @@ input[type=date],input[type=number]{color-scheme:dark}
 .nav-item{display:flex;align-items:center;gap:12px;padding:11px 14px;margin:1px 12px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-radius:11px;user-select:none;transition:background .15s,color .15s}
 .nav-item:hover,.nav-item:active{background:var(--panel);color:var(--text)}
 .nav-item.active{color:var(--mint);background:var(--mint-soft);font-weight:600}
+.nav-group{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:15px 26px 5px;user-select:none}
+.nav-group:first-child{padding-top:4px}
 .nav-item i{font-size:19px;flex-shrink:0}
 .sync-btn{margin:8px 14px 4px;padding:10px 12px;background:var(--panel);border:1px solid var(--border-2);border-radius:11px;color:var(--mint);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:600}
 .sync-btn:hover{background:var(--panel-2)}
@@ -405,26 +407,38 @@ html,body{overflow-x:hidden;max-width:100vw}
       <button class="menu-close" onclick="closeSidebar()" aria-label="Cerrar menú"><i class="ti ti-x"></i></button>
     </div>
     <nav class="nav">
+      <div class="nav-group">Resumen</div>
       <div class="nav-item active" onclick="show('dashboard',this)"><i class="ti ti-layout-dashboard"></i> Dashboard</div>
       <div class="nav-item" onclick="show('resultados',this)"><i class="ti ti-chart-bar"></i> Resultados</div>
       <div class="nav-item" onclick="show('balance',this)"><i class="ti ti-report-money"></i> Balance del año</div>
+
+      <div class="nav-group">Asistentes IA</div>
       <div class="nav-item" onclick="show('contador',this)"><i class="ti ti-calculator"></i> Contador IA</div>
       <div class="nav-item" onclick="show('ceo',this)"><i class="ti ti-crown"></i> Panel CEO</div>
+      <div class="nav-item" onclick="show('asistente',this)"><i class="ti ti-robot"></i> Asistente IA</div>
+
+      <div class="nav-group">Dinero</div>
       <div class="nav-item" onclick="show('contabilidad',this)"><i class="ti ti-notebook"></i> Contabilidad</div>
+      <div class="nav-item" onclick="show('cierre',this)"><i class="ti ti-cash"></i> Cierre diario</div>
+      <div class="nav-item" onclick="show('calculadora',this)"><i class="ti ti-calculator"></i> Calculadora</div>
+
+      <div class="nav-group">Inventario</div>
       <div class="nav-item" onclick="show('inventario',this)"><i class="ti ti-box"></i> Inventario</div>
+      <div class="nav-item" onclick="show('compras',this)"><i class="ti ti-shopping-cart"></i> Compras</div>
+      <div class="nav-item" onclick="show('pedidos',this)"><i class="ti ti-truck-delivery"></i> Pedidos</div>
+      <div class="nav-item" onclick="show('rotacion',this)"><i class="ti ti-rotate-clockwise-2"></i> Rotación</div>
+
+      <div class="nav-group">Ventas y clientes</div>
       <div class="nav-item" onclick="show('ventas',this)"><i class="ti ti-currency-dollar"></i> Ventas</div>
       <div class="nav-item" onclick="show('clientes',this)"><i class="ti ti-users"></i> Clientes</div>
       <div class="nav-item" onclick="show('base',this)"><i class="ti ti-address-book"></i> Base de clientes</div>
       <div class="nav-item" onclick="show('recompras',this)"><i class="ti ti-refresh-alert"></i> Recompras</div>
       <div class="nav-item" onclick="show('facturador',this)"><i class="ti ti-file-invoice"></i> Facturador</div>
-      <div class="nav-item" onclick="show('compras',this)"><i class="ti ti-shopping-cart"></i> Compras</div>
-      <div class="nav-item" onclick="show('pedidos',this)"><i class="ti ti-truck-delivery"></i> Pedidos</div>
-      <div class="nav-item" onclick="show('rotacion',this)"><i class="ti ti-rotate-clockwise-2"></i> Rotación</div>
+
+      <div class="nav-group">Organización</div>
       <div class="nav-item" onclick="show('tareas',this)"><i class="ti ti-checklist"></i> Tareas</div>
-      <div class="nav-item" onclick="show('calculadora',this)"><i class="ti ti-calculator"></i> Calculadora</div>
-      <div class="nav-item" onclick="show('cierre',this)"><i class="ti ti-cash"></i> Cierre diario</div>
-      <div class="nav-item" onclick="show('asistente',this)"><i class="ti ti-robot"></i> Asistente IA</div>
-      <div class="nav-item" onclick="cerrarSesion()" style="color:#e05252"><i class="ti ti-logout"></i> Cerrar sesión</div>
+
+      <div class="nav-item" onclick="cerrarSesion()" style="color:#e05252;margin-top:8px"><i class="ti ti-logout"></i> Cerrar sesión</div>
     </nav>
     <button class="sync-btn" id="sync-btn" onclick="sincronizar()"><i class="ti ti-refresh" id="sync-icon"></i> Sincronizar</button>
     <div class="sync-status" id="sync-status">Sin sincronizar</div>
@@ -473,11 +487,11 @@ html,body{overflow-x:hidden;max-width:100vw}
       <div class="card" id="dash-chart"></div>
       <div class="dash-lists">
         <div class="card">
-          <div class="card-header"><span class="card-title">Últimas ventas</span><button class="btn btn-sm" onclick="show('ventas',document.querySelectorAll('.nav-item')[4])">Ver todas</button></div>
+          <div class="card-header"><span class="card-title">Últimas ventas</span><button class="btn btn-sm" onclick="show('ventas')">Ver todas</button></div>
           <div id="dash-ventas" class="dash-list"></div>
         </div>
         <div class="card">
-          <div class="card-header"><span class="card-title">Cartera pendiente</span><button class="btn btn-sm" onclick="show('clientes',document.querySelectorAll('.nav-item')[5])">Ver todos</button></div>
+          <div class="card-header"><span class="card-title">Cartera pendiente</span><button class="btn btn-sm" onclick="show('clientes')">Ver todos</button></div>
           <div id="dash-clientes" class="dash-list"></div>
         </div>
       </div>
@@ -505,6 +519,7 @@ html,body{overflow-x:hidden;max-width:100vw}
       </div>
       <div class="kpi-grid" id="bal-kpis"></div>
       <div class="card" id="bal-insight" style="margin-top:4px;display:none"></div>
+      <div class="card" id="bal-chart" style="display:none"></div>
       <div class="card">
         <div class="card-header"><span class="card-title">Estado de resultados</span><span id="bal-updated" style="font-size:11px;color:var(--muted)"></span></div>
         <div class="table-wrap">
@@ -1417,6 +1432,8 @@ function show(page,el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
+  // si no viene el elemento (o viene uno equivocado), ubico el ítem del menú por su página
+  if(!el){ el=Array.prototype.find.call(document.querySelectorAll('.nav-item'),function(n){ return (n.getAttribute('onclick')||'').indexOf("show('"+page+"'")>-1; }); }
   if(el) el.classList.add('active');
   document.getElementById('page-title').textContent=el?el.textContent.trim():page;
   closeSidebar();
@@ -2391,7 +2408,7 @@ function renderDash() {
   const conDeuda=db.clientes.filter(c=>c.saldo>0).sort((a,b)=>b.saldo-a.saldo).slice(0,5);
   document.getElementById('dash-clientes').innerHTML=conDeuda.length?conDeuda.map(c=>`<div class="dash-row"><div class="dash-avatar coral">${(c.nombre||'?').trim().slice(0,2).toUpperCase()}</div><div class="dash-row-main"><div class="dash-row-t">${c.nombre}</div><div class="dash-row-s">saldo pendiente</div></div><span class="badge badge-danger">${fmt(c.saldo)}</span></div>`).join(''):'<div class="empty-state"><i class="ti ti-checks"></i>¡Todos al día!</div>';
   const reab=db.inv.filter(p=>p.e==='REABASTECER').length;
-  document.getElementById('alerta-reabastecer').innerHTML=reab>0?`<div class="alert-bar"><i class="ti ti-alert-triangle"></i><strong>${reab} productos</strong> necesitan reabastecimiento.<button class="btn btn-sm" style="margin-left:auto" onclick="show('inventario',document.querySelectorAll('.nav-item')[3]);document.getElementById('inv-filter-estado').value='REABASTECER';renderInv()">Ver</button></div>`:'';
+  document.getElementById('alerta-reabastecer').innerHTML=reab>0?`<div class="alert-bar"><i class="ti ti-alert-triangle"></i><strong>${reab} productos</strong> necesitan reabastecimiento.<button class="btn btn-sm" style="margin-left:auto" onclick="show('inventario');document.getElementById('inv-filter-estado').value='REABASTECER';renderInv()">Ver</button></div>`:'';
 }
 function renderDashChart() {
   const el=document.getElementById('dash-chart'); if(!el) return;
@@ -4385,6 +4402,21 @@ async function renderBalance(){
   }).join('')
   +'<tr class="total-row"><td>AÑO</td><td>'+fmt(b.totalVentas)+'</td><td>'+fmt(b.totalCosto)+'</td><td>'+fmt(b.totalUtilidadBruta)+'</td><td>'+fmt(b.totalGastoOperativo)+'</td><td>'+fmt(b.totalUtilidadOperativa)+'</td><td>'+b.margenOperativoAnual+'%</td></tr>';
   if(upd){ var now=new Date(); upd.textContent='al '+now.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})+' '+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}); }
+  // gráfico de ventas por mes
+  var bch=document.getElementById('bal-chart');
+  if(bch){
+    if(mm.length){
+      var abr={Enero:'ene',Febrero:'feb',Marzo:'mar',Abril:'abr',Mayo:'may',Junio:'jun',Julio:'jul',Agosto:'ago',Septiembre:'sep',Octubre:'oct',Noviembre:'nov',Diciembre:'dic'};
+      var maxV=Math.max.apply(null,mm.map(function(m){return m.ventas;}).concat([1]));
+      var barras=mm.map(function(m){
+        var h=Math.max(6,Math.round((m.ventas/maxV)*112));
+        var esMax=m.ventas===maxV;
+        return '<div class="chart-col"><div class="chart-bar '+(esMax?'today':'')+'" style="height:'+h+'px" title="'+fmt(m.ventas)+'"></div><span class="chart-lbl '+(esMax?'today':'')+'">'+(abr[m.mes]||String(m.mes).slice(0,3).toLowerCase())+'</span></div>';
+      }).join('');
+      bch.style.display='';
+      bch.innerHTML='<div class="card-header"><span class="card-title">Ventas por mes</span><span style="font-size:12px;color:var(--muted)">'+fmt(b.totalVentas)+' total</span></div><div class="chart-bars">'+barras+'</div>';
+    } else { bch.style.display='none'; }
+  }
   // mejor día (tarjeta destacada)
   if(md){
     if(b.diaMayorVenta){
@@ -4397,7 +4429,8 @@ async function renderBalance(){
   }
   // cartera en vivo
   if(ct){
-    var deudores=((window.db&&db.clientes)?db.clientes:[]).filter(function(c){return (c.saldo||0)>0;}).sort(function(a,b){return (b.saldo||0)-(a.saldo||0);});
+    var _cli=(typeof db!=='undefined'&&db&&db.clientes)?db.clientes:[];
+    var deudores=_cli.filter(function(c){return (c.saldo||0)>0;}).sort(function(a,b){return (b.saldo||0)-(a.saldo||0);});
     var totalCartera=deudores.reduce(function(a,c){return a+(c.saldo||0);},0);
     if(!deudores.length){ ct.innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px;text-align:center">Sin cartera pendiente 🎉</div>'; }
     else {

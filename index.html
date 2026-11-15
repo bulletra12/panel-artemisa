@@ -407,6 +407,7 @@ html,body{overflow-x:hidden;max-width:100vw}
     <nav class="nav">
       <div class="nav-item active" onclick="show('dashboard',this)"><i class="ti ti-layout-dashboard"></i> Dashboard</div>
       <div class="nav-item" onclick="show('resultados',this)"><i class="ti ti-chart-bar"></i> Resultados</div>
+      <div class="nav-item" onclick="show('balance',this)"><i class="ti ti-report-money"></i> Balance del año</div>
       <div class="nav-item" onclick="show('contador',this)"><i class="ti ti-calculator"></i> Contador IA</div>
       <div class="nav-item" onclick="show('ceo',this)"><i class="ti ti-crown"></i> Panel CEO</div>
       <div class="nav-item" onclick="show('contabilidad',this)"><i class="ti ti-notebook"></i> Contabilidad</div>
@@ -493,6 +494,30 @@ html,body{overflow-x:hidden;max-width:100vw}
             <tbody id="er-body"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- BALANCE DEL AÑO (en vivo) -->
+    <div class="page" id="page-balance">
+      <div class="card-header" style="margin-bottom:14px">
+        <span class="card-title">Balance del año — se actualiza solo</span>
+        <button class="btn btn-sm" onclick="refrescarBalance()"><i class="ti ti-refresh"></i> Actualizar</button>
+      </div>
+      <div class="kpi-grid" id="bal-kpis"></div>
+      <div class="card" id="bal-insight" style="margin-top:4px;display:none"></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Estado de resultados</span><span id="bal-updated" style="font-size:11px;color:var(--muted)"></span></div>
+        <div class="table-wrap">
+          <table class="er-table">
+            <thead><tr><th>Mes</th><th>Ventas</th><th>Costo</th><th>Ut. bruta</th><th>Gasto op.</th><th>Ut. operativa</th><th>Margen</th></tr></thead>
+            <tbody id="bal-er-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" id="bal-mejordia" style="display:none"></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Cartera — clientes que deben</span></div>
+        <div id="bal-cartera" class="dash-list"></div>
       </div>
     </div>
 
@@ -1406,14 +1431,17 @@ function show(page,el) {
     renderFacturaPreview();
     cargarNumFactura();
   }
+  if(page==='balance'){ renderBalance(); }
   if(page==='ceo'){
     if(!baseClientes||!baseClientes.length) cargarBaseClientes();
     if(!recompras||!recompras.length) cargarRecompras();
+    if(!balanceAnual) cargarBalanceAnual();
     if(!document.getElementById('ceo-chat').innerHTML){
       document.getElementById('ceo-chat').innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px;text-align:center">Dale a "Analizar mi negocio" o pregúntame lo que quieras 👇</div>';
     }
   }
   if(page==='contador'){
+    if(!balanceAnual) cargarBalanceAnual();
     if(!document.getElementById('contador-chat').innerHTML){
       document.getElementById('contador-chat').innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px;text-align:center">Dale a "Generar balance" o hazme una pregunta sobre tus números 👇</div>';
     }
@@ -4290,8 +4318,101 @@ async function informeInventarioIA(){
 // ========== PANEL CEO ==========
 var ceoChat=[];
 
+// ===== HISTÓRICO ANUAL (todos los meses) para que el Contador y el CEO razonen con el año completo =====
+var balanceAnual=null;
+async function cargarBalanceAnual(){
+  try{
+    var r=await fetch(SHEET_URL+'?accion=getBalanceAnual').then(function(res){return res.json();});
+    if(r && r.ok && r.meses){ balanceAnual=r; }
+  }catch(e){}
+  return balanceAnual;
+}
+
+// ====== BALANCE DEL AÑO EN VIVO ======
+function balFechaLarga(f){
+  if(!f) return '—';
+  var ms=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  try{ var p=String(f).split('-'); return parseInt(p[2],10)+' de '+ms[parseInt(p[1],10)-1]+' de '+p[0]; }catch(e){ return String(f); }
+}
+function balKpi(label,val,sub,icon,heroClass){
+  return '<div class="kpi'+(heroClass||'')+'"><div class="kpi-top"><span class="kpi-label">'+label+'</span><i class="ti '+icon+' kpi-ic"></i></div>'
+    +'<div class="kpi-val">'+val+'</div><div class="kpi-sub">'+sub+'</div></div>';
+}
+async function refrescarBalance(){ balanceAnual=null; await renderBalance(); toast('Balance actualizado','ok'); }
+async function renderBalance(){
+  var kp=document.getElementById('bal-kpis'); if(!kp) return;
+  var ins=document.getElementById('bal-insight'), erb=document.getElementById('bal-er-body');
+  var md=document.getElementById('bal-mejordia'), ct=document.getElementById('bal-cartera');
+  var upd=document.getElementById('bal-updated');
+  if(!balanceAnual){
+    kp.innerHTML='<div class="kpi" style="grid-column:1/-1;text-align:center;color:var(--muted)">Cargando balance del año…</div>';
+    await cargarBalanceAnual();
+  }
+  var b=balanceAnual;
+  if(!b||!b.meses){
+    kp.innerHTML='<div class="kpi" style="grid-column:1/-1;text-align:center;color:var(--muted)">No pude leer el balance. Revisa que exista la hoja ESTADO_RESULTADOS y vuelve a publicar el Apps Script.</div>';
+    return;
+  }
+  // KPIs
+  kp.innerHTML=
+    balKpi('Ventas del año',fmt(b.totalVentas),'acumulado','ti-trending-up',' hero')+
+    balKpi('Utilidad operativa',fmt(b.totalUtilidadOperativa),'margen '+b.margenOperativoAnual+'%','ti-cash')+
+    balKpi('Margen bruto',b.margenBrutoAnual+'%','sobre ventas','ti-percentage')+
+    balKpi('Mejor día',b.diaMayorVenta?fmt(b.diaMayorVenta.venta):'—',b.diaMayorVenta?balFechaLarga(b.diaMayorVenta.fecha):'—','ti-trophy');
+  // meses con ventas reales
+  var mm=b.meses.filter(function(m){return m.ventas>0;});
+  // promedio mensual (excluye el mes en curso, que va incompleto)
+  var msNombres=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var mesActual=msNombres[new Date().getMonth()];
+  var completos=mm.filter(function(m){return m.mes!==mesActual;});
+  var baseProm=completos.length?completos:mm;
+  var promedio=baseProm.length?baseProm.reduce(function(a,m){return a+m.ventas;},0)/baseProm.length:0;
+  // mejor mes por utilidad operativa
+  var mejorMes=mm.length?mm.reduce(function(a,m){return m.utilidadOperativa>a.utilidadOperativa?m:a;},mm[0]):null;
+  if(ins){
+    if(mejorMes){
+      ins.style.display='';
+      ins.innerHTML='<div class="card-header"><span class="card-title">📌 Lo que dice el año</span></div>'
+        +'<p style="font-size:13px;line-height:1.6;color:var(--text);margin:4px 0 0">'
+        +'Tu mejor mes en ganancia fue <strong>'+mejorMes.mes+'</strong> ('+fmt(mejorMes.utilidadOperativa)+', '+mejorMes.margenOperativo+'% de margen). '
+        +'Promedio de venta mensual: <strong>'+fmt(promedio)+'</strong>. '
+        +'Margen bruto del año: <strong>'+b.margenBrutoAnual+'%</strong>.</p>';
+    } else { ins.style.display='none'; }
+  }
+  // estado de resultados
+  erb.innerHTML=mm.map(function(m){
+    return '<tr class="pos"><td>'+m.mes+'</td><td>'+fmt(m.ventas)+'</td><td>'+fmt(m.costo)+'</td><td>'+fmt(m.utilidadBruta)+'</td><td>'+fmt(m.gastoOperativo)+'</td><td>'+fmt(m.utilidadOperativa)+'</td><td>'+m.margenOperativo+'%</td></tr>';
+  }).join('')
+  +'<tr class="total-row"><td>AÑO</td><td>'+fmt(b.totalVentas)+'</td><td>'+fmt(b.totalCosto)+'</td><td>'+fmt(b.totalUtilidadBruta)+'</td><td>'+fmt(b.totalGastoOperativo)+'</td><td>'+fmt(b.totalUtilidadOperativa)+'</td><td>'+b.margenOperativoAnual+'%</td></tr>';
+  if(upd){ var now=new Date(); upd.textContent='al '+now.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})+' '+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}); }
+  // mejor día (tarjeta destacada)
+  if(md){
+    if(b.diaMayorVenta){
+      md.style.display='';
+      md.innerHTML='<div class="card-header"><span class="card-title">🏆 Día de mayor venta del año</span></div>'
+        +'<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:4px">'
+        +'<span style="font-size:26px;font-weight:800;color:var(--mint)">'+fmt(b.diaMayorVenta.venta)+'</span>'
+        +'<span style="font-size:13px;color:var(--muted)">'+balFechaLarga(b.diaMayorVenta.fecha)+'</span></div>';
+    } else { md.style.display='none'; }
+  }
+  // cartera en vivo
+  if(ct){
+    var deudores=((window.db&&db.clientes)?db.clientes:[]).filter(function(c){return (c.saldo||0)>0;}).sort(function(a,b){return (b.saldo||0)-(a.saldo||0);});
+    var totalCartera=deudores.reduce(function(a,c){return a+(c.saldo||0);},0);
+    if(!deudores.length){ ct.innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px;text-align:center">Sin cartera pendiente 🎉</div>'; }
+    else {
+      ct.innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:8px">'+deudores.length+' clientes deben <strong>'+fmt(totalCartera)+'</strong></div>'
+        +deudores.slice(0,10).map(function(c){
+          var nom=c.nombre||c.cliente||'—';
+          return '<div class="dash-row"><div class="dash-avatar coral">'+String(nom).trim().slice(0,2).toUpperCase()+'</div><div class="dash-row-main"><div class="dash-row-t">'+nom+'</div><div class="dash-row-s">saldo pendiente</div></div><span class="badge badge-danger">'+fmt(c.saldo)+'</span></div>';
+        }).join('');
+    }
+  }
+}
+
 function metricasCEO(){
   var m=calcularMetricas(); // reutiliza el cálculo del contador (finanzas)
+  if(balanceAnual) m.historicoAnual=balanceAnual; // año completo mes a mes
   // añade datos de recompras, base y rotación para visión completa
   m.totalClientesBase=(baseClientes||[]).length;
   m.clientesConTel=(baseClientes||[]).filter(function(c){ return (c.tel||'').replace(/[^0-9]/g,'').length>=10; }).length;
@@ -4335,6 +4456,7 @@ async function analisisCEO(){
     var promesas=[];
     if(!baseClientes||!baseClientes.length) promesas.push(fetch(SHEET_URL+'?accion=getBaseClientes').then(function(r){return r.json();}).then(function(rb){ if(rb.ok&&rb.data) baseClientes=rb.data; }).catch(function(){}));
     if(!recompras||!recompras.length) promesas.push(fetch(SHEET_URL+'?accion=getRecompras').then(function(r){return r.json();}).then(function(rr){ if(rr.ok&&rr.data) recompras=rr.data; }).catch(function(){}));
+    if(!balanceAnual) promesas.push(cargarBalanceAnual());
     if(promesas.length) await Promise.all(promesas);
   }catch(e){}
   cont.innerHTML='<div class="card"><div style="text-align:center;padding:20px;color:var(--muted)"><i class="ti ti-loader ti-spin" style="font-size:28px;color:#a78bfa"></i><div style="margin-top:8px">El CEO está analizando todo tu negocio...</div></div></div>';
@@ -4342,6 +4464,7 @@ async function analisisCEO(){
   var sys='Eres el CEO y director estratégico de Artemisa Belleza, una tienda de cosméticos en Colombia que vende ONLINE. '
     + 'El dueño (David) quiere hacer crecer el negocio GRANDE y sabe que su debilidad es el MARKETING DIGITAL. Trabaja MEDIA JORNADA en gestión (la otra media entrega domicilios), así que el plan debe ser realista: pocas cosas pero de alto impacto. '
     + 'Tienes acceso a TODA la información: finanzas (como un contador), estado del inventario (como un revisor de inventario), cartera, rotación, recompras y base de clientes. Úsala TODA y conéctala. '
+    + 'MUY IMPORTANTE: en el dato "historicoAnual" tienes el AÑO COMPLETO mes a mes (ventas, costo, utilidad y margen bruto de cada mes y los totales del año). Úsalo para ver tendencias: compara el mes actual contra el promedio del año, di si viene subiendo o bajando, cuál fue el mejor y peor mes, y cuánto lleva ganado en el año. No te limites al mes actual. '
     + 'Hablas DIRECTO y EXIGENTE, como un jefe de verdad que quiere resultados: sin rodeos, honesto, pero constructivo. Español colombiano. '
     + 'NO uses asteriscos ni markdown, texto plano. Usa títulos con emoji en MAYÚSCULAS y viñetas con guion. '
     + 'Analiza TODOS los datos y escribe un informe de CEO con estas secciones EN ORDEN:\n\n'
@@ -4533,21 +4656,24 @@ async function generarBalance(){
   // asegura datos cargados
   try{
     if(!baseClientes||!baseClientes.length){ var rb=await fetch(SHEET_URL+'?accion=getBaseClientes').then(function(r){return r.json();}); if(rb.ok&&rb.data) baseClientes=rb.data; }
+    if(!balanceAnual) await cargarBalanceAnual();
   }catch(e){}
   var m=calcularMetricas();
+  if(balanceAnual) m.historicoAnual=balanceAnual; // año completo mes a mes
 
   var sys='Eres un contador senior con 20 años en multinacionales, ahora asesorando a Artemisa Belleza, una tienda de cosméticos en Colombia. '
     + 'Hablas PROFESIONAL pero EXPLICAS FÁCIL (sin jerga innecesaria; si usas un término técnico, lo aclaras en una frase). Tono directo y honesto, como un buen asesor que no endulza. '
     + 'IMPORTANTE DE FORMATO: NO uses asteriscos (*), NO uses markdown, NO uses negrillas con **. Escribe en texto plano limpio. '
     + 'Para cada sección usa el emoji y título en MAYÚSCULAS, luego salto de línea, y las ideas como frases cortas separadas por saltos de línea (una idea por línea, empezando con un guion "- "). '
+    + 'MUY IMPORTANTE: en "historicoAnual" tienes el AÑO COMPLETO mes a mes (ventas, costo, utilidad y margen bruto de cada mes, y los totales del año). Úsalo: compara el mes actual contra los meses anteriores y contra el promedio del año, di si viene mejorando o empeorando, y menciona el total vendido y la utilidad del año. No te quedes solo en el mes actual. Si ves gastos de un mes muy fuera de lo normal, adviértelo como posible dato por revisar, no como pérdida real. '
     + 'Con los datos que te doy, escribe un BALANCE EJECUTIVO en español colombiano con estas 4 secciones EN ESTE ORDEN:\n\n'
-    + '📊 RESUMEN DEL MES\n(ventas, utilidad, margen; di claro si va bien o mal y por qué)\n\n'
+    + '📊 RESUMEN DEL MES Y DEL AÑO\n(ventas y margen del mes, y cómo va el año completo: total vendido, margen bruto del año, tendencia)\n\n'
     + '⚠️ RIESGOS Y ALERTAS\n(cartera por cobrar, gastos, agotados, plata dormida en inventario)\n\n'
-    + '🔮 PREDICCIONES\n(proyección fin de mes y 3 meses, y qué significa en la práctica)\n\n'
+    + '🔮 PREDICCIONES\n(proyección fin de mes y 3 meses apoyándote en la tendencia del año, y qué significa en la práctica)\n\n'
     + '💡 RECOMENDACIONES\n(3 a 5 acciones concretas, cada una en su línea con guion, ordenadas por importancia)\n\n'
-    + 'Sé concreto con las cifras en pesos colombianos (usa puntos de miles). No inventes datos que no te di. Si algo no cuadra o falta info, dilo. Máximo 350 palabras.';
+    + 'Sé concreto con las cifras en pesos colombianos (usa puntos de miles). No inventes datos que no te di. Si algo no cuadra o falta info, dilo. Máximo 400 palabras.';
 
-  var datos='DATOS DE ARTEMISA BELLEZA (mes actual):\n'+JSON.stringify(m,null,1);
+  var datos='DATOS DE ARTEMISA BELLEZA (mes actual + histórico del año):\n'+JSON.stringify(m,null,1);
 
   try{
     var r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:sys,messages:[{role:'user',content:datos}]})});
@@ -4591,10 +4717,12 @@ async function preguntarContador(){
   chat.scrollTop=chat.scrollHeight;
 
   var m=calcularMetricas();
+  if(balanceAnual) m.historicoAnual=balanceAnual;
   var sys='Eres un contador senior (20 años en multinacionales) asesorando a Artemisa Belleza, tienda de cosméticos en Colombia. '
     + 'Respondes PROFESIONAL pero FÁCIL de entender, directo y honesto, en español colombiano. Usas los datos reales que te doy (en pesos). '
+    + 'En "historicoAnual" tienes el año completo mes a mes; úsalo para comparar y ver tendencias, no solo el mes actual. '
     + 'Respuestas cortas y accionables (máximo 150 palabras). Si te falta un dato, dilo en vez de inventar.\n\n'
-    + 'DATOS ACTUALES: '+JSON.stringify(m);
+    + 'DATOS ACTUALES (mes + histórico anual): '+JSON.stringify(m);
 
   contadorChat.push({role:'user',content:q});
   try{

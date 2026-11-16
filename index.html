@@ -46,6 +46,24 @@
   --shadow-s:0 1px 2px rgba(0,0,0,.4);
   --shadow-m:0 14px 40px rgba(0,0,0,.55);
 }
+/* ===== TEMA CLARO (opcional) ===== */
+:root[data-theme="light"]{
+  --bg:#F4F5F8;--bg-2:#FFFFFF;
+  --panel:#FFFFFF;--panel-2:#F1F2F6;--panel-3:#E7E9EF;
+  --border:#E3E5EB;--border-2:#D2D5DD;
+  --text:#1B1D24;--muted:#6A6D77;--faint:#9A9DA6;
+  --mint:#12A56A;--mint-d:#0E8A58;--mint-soft:rgba(18,165,106,.12);--mint-glow:rgba(18,165,106,.3);--mint-ink:#FFFFFF;
+  --coral:#E05252;--coral-soft:rgba(224,82,82,.10);
+  --amber:#C98412;--amber-soft:rgba(201,132,18,.12);
+  --blue:#2F80ED;--blue-soft:rgba(47,128,237,.10);
+  --gold-d:#0E8A58;
+  --ok:#12A56A;--ok-bg:rgba(18,165,106,.12);
+  --warn:#C98412;--warn-bg:rgba(201,132,18,.12);
+  --danger:#E05252;--danger-bg:rgba(224,82,82,.12);
+  --shadow-s:0 1px 2px rgba(20,22,30,.08);
+  --shadow-m:0 14px 40px rgba(20,22,30,.12);
+}
+:root[data-theme="light"] .topbar{background:rgba(255,255,255,.85)}
 body{font-family:var(--ff-body);background:var(--bg);color:var(--text);font-size:14px;overscroll-behavior:none}
 input,select,textarea{color:var(--text);font-family:var(--ff-body)}
 select option{background:var(--panel-2);color:var(--text)}
@@ -457,6 +475,7 @@ html,body{overflow-x:hidden;max-width:100vw}
         <span class="topbar-title" id="page-title">Dashboard</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-sm" id="theme-toggle" onclick="toggleTema()" title="Cambiar tema claro/oscuro" style="padding:6px 9px"><i class="ti ti-moon" id="theme-icon"></i></button>
         <div class="conn-indicator offline" id="conn-indicator"><div class="conn-dot"></div><span id="conn-text">Sin conexión</span></div>
         <span class="topbar-date" id="topbar-date"></span>
       </div>
@@ -804,8 +823,16 @@ html,body{overflow-x:hidden;max-width:100vw}
       <div class="card">
         <div class="card-header"><span class="card-title"><i class="ti ti-camera"></i> Foto del producto</span></div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Sube la foto y se guarda en tu Drive (carpeta <strong>FOTOS_ARTEMISA</strong>). El enlace queda listo para el marketplace.</div>
-        <input id="mk-foto" type="file" accept="image/*" onchange="subirFotoMarket(this)" style="font-size:13px;color:var(--text)">
-        <div style="margin-top:10px"><img id="mk-foto-prev" alt="" style="display:none;max-width:160px;border-radius:10px;border:1px solid var(--border)"></div>
+        <div class="form-group"><label>Tamaño de la foto</label>
+          <select id="mk-foto-tam">
+            <option value="original">Original (alta calidad)</option>
+            <option value="ml">Mercado Libre — 1200×1200 (fondo blanco)</option>
+            <option value="sq1000">Cuadrada 1000×1000 (general)</option>
+          </select>
+        </div>
+        <input id="mk-foto" type="file" accept="image/*" multiple onchange="subirFotoMarket(this)" style="font-size:13px;color:var(--text)">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Puedes elegir varias a la vez. En "Mercado Libre" quedan cuadradas con fondo blanco, sin recortar el producto.</div>
+        <div id="mk-foto-prev-cont" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px"></div>
         <div id="mk-foto-link" style="margin-top:6px;font-size:12px"></div>
       </div>
 
@@ -1540,6 +1567,20 @@ function calcPlataforma(){
   set('plat-ivaval', usaIva?fmt(Math.round(ivaVal)):'—');
   set('plat-neto', fmt(Math.round(R)));
 }
+// ====== TEMA CLARO / OSCURO ======
+function aplicarTema(t){
+  if(t==='light') document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+  var ic=document.getElementById('theme-icon');
+  if(ic) ic.className='ti '+(t==='light'?'ti-sun':'ti-moon');
+  try{ localStorage.setItem('artemisa_tema', t); }catch(e){}
+}
+function toggleTema(){
+  var actual=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
+  aplicarTema(actual==='light'?'dark':'light');
+}
+(function(){ try{ var t=localStorage.getItem('artemisa_tema'); if(t==='light'){ aplicarTema('light'); } else { var ic=document.getElementById('theme-icon'); if(ic) ic.className='ti ti-moon'; } }catch(e){} })();
+
 // ====== SUBIR A MARKETPLACE ======
 var mkPrecioCalc=0;
 function mkContar(){ var t=document.getElementById('mk-descripcion'), c=document.getElementById('mk-desc-count'); if(t&&c) c.textContent=t.value.length+'/3000'; }
@@ -1570,7 +1611,7 @@ function limpiarMarket(){
   // limpiar extractor y foto
   var ex=document.getElementById('mk-extraer-texto'); if(ex) ex.value='';
   var fi=document.getElementById('mk-foto'); if(fi) fi.value='';
-  var pv=document.getElementById('mk-foto-prev'); if(pv){ pv.src=''; pv.style.display='none'; }
+  var pv=document.getElementById('mk-foto-prev-cont'); if(pv) pv.innerHTML='';
   var fl=document.getElementById('mk-foto-link'); if(fl) fl.innerHTML='';
   mkFotoUrl='';
   mkPrecioCalc=0; calcMarket(); mkContar();
@@ -1612,37 +1653,74 @@ function llenarFormMarket(o){
   Object.keys(map).forEach(function(k){ var e=document.getElementById(map[k]); if(e && o[k]!=null && String(o[k]).trim()!=='') e.value=o[k]; });
   mkContar();
 }
-// --- Foto del producto a Drive ---
+// --- Fotos del producto a Drive (varias, en calidad original) ---
 var mkFotoUrl='';
-function comprimirImagen(file,maxLado,calidad){
+function leerArchivoDataURL(file){
   return new Promise(function(resolve,reject){
-    var url=URL.createObjectURL(file); var img=new Image();
+    var fr=new FileReader();
+    fr.onload=function(){ resolve(fr.result); };
+    fr.onerror=function(){ reject(new Error('read')); };
+    fr.readAsDataURL(file);
+  });
+}
+// Solo reduce si la imagen es ENORME (>2600px) para que no falle la subida; si no, deja el original intacto.
+function ajustarSiEnorme(dataUrl){
+  return new Promise(function(resolve){
+    var img=new Image();
     img.onload=function(){
-      var w=img.width,h=img.height;
-      if(w>=h && w>maxLado){ h=Math.round(h*maxLado/w); w=maxLado; }
-      else if(h>w && h>maxLado){ w=Math.round(w*maxLado/h); h=maxLado; }
+      var max=Math.max(img.width,img.height);
+      if(max<=2600){ resolve(dataUrl); return; }      // calidad original
+      var esc=2600/max, w=Math.round(img.width*esc), h=Math.round(img.height*esc);
       var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
       cv.getContext('2d').drawImage(img,0,0,w,h);
-      URL.revokeObjectURL(url);
-      resolve(cv.toDataURL('image/jpeg',calidad));
+      resolve(cv.toDataURL('image/jpeg',0.95));         // alta calidad
     };
-    img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('img')); };
-    img.src=url;
+    img.onerror=function(){ resolve(dataUrl); };
+    img.src=dataUrl;
+  });
+}
+// Ajusta la foto al tamaño de la plataforma: cuadrada con fondo blanco, SIN recortar el producto.
+function procesarFotoParaTam(dataUrl, modo){
+  if(modo==='original' || !modo) return ajustarSiEnorme(dataUrl);
+  var lado = modo==='ml' ? 1200 : 1000;
+  return new Promise(function(resolve){
+    var img=new Image();
+    img.onload=function(){
+      var cv=document.createElement('canvas'); cv.width=lado; cv.height=lado;
+      var ctx=cv.getContext('2d');
+      ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,lado,lado);
+      var esc=Math.min(lado/img.width, lado/img.height);   // contener sin recortar
+      var w=Math.round(img.width*esc), h=Math.round(img.height*esc);
+      ctx.drawImage(img, Math.round((lado-w)/2), Math.round((lado-h)/2), w, h);
+      resolve(cv.toDataURL('image/jpeg',0.92));
+    };
+    img.onerror=function(){ resolve(dataUrl); };
+    img.src=dataUrl;
   });
 }
 async function subirFotoMarket(input){
-  var file=input.files&&input.files[0]; if(!file) return;
-  toast('Procesando foto...','');
-  try{
-    var dataUrl=await comprimirImagen(file,1000,0.82);
-    var prev=document.getElementById('mk-foto-prev'); if(prev){ prev.src=dataUrl; prev.style.display='block'; }
-    var nombre=(document.getElementById('mk-nombre').value||'producto');
-    var fd=new FormData(); fd.append('accion','subirFoto'); fd.append('nombre',nombre); fd.append('img',dataUrl);
-    toast('Subiendo a Drive...','');
-    var r=await fetch(SHEET_URL,{method:'POST',body:fd}).then(function(x){return x.json();});
-    if(r&&r.ok){ mkFotoUrl=r.directo||r.url||''; var lk=document.getElementById('mk-foto-link'); if(lk) lk.innerHTML='✅ <a href="'+r.url+'" target="_blank" style="color:var(--mint)">Ver foto en Drive</a>'; toast('✅ Foto guardada en Drive','ok'); }
-    else{ toast('⚠️ '+((r&&r.error)||'No se pudo subir la foto'),'error'); }
-  }catch(e){ toast('No se pudo procesar/subir la foto','error'); }
+  var files=input.files; if(!files||!files.length) return;
+  var cont=document.getElementById('mk-foto-prev-cont'); if(cont) cont.innerHTML='';
+  var tamSel=document.getElementById('mk-foto-tam'); var modo=tamSel?tamSel.value:'original';
+  var links=[];
+  for(var i=0;i<files.length;i++){
+    toast('Subiendo foto '+(i+1)+' de '+files.length+'...','');
+    try{
+      var original=await leerArchivoDataURL(files[i]);
+      var dataUrl=await procesarFotoParaTam(original, modo);
+      if(cont){ var im=document.createElement('img'); im.src=dataUrl; im.style.cssText='max-width:100px;max-height:100px;border-radius:8px;border:1px solid var(--border);object-fit:cover'; cont.appendChild(im); }
+      var nombre=(document.getElementById('mk-nombre').value||'producto')+'_'+(i+1);
+      var fd=new FormData(); fd.append('accion','subirFoto'); fd.append('nombre',nombre); fd.append('img',dataUrl);
+      var r=await fetch(SHEET_URL,{method:'POST',body:fd}).then(function(x){return x.json();});
+      if(r&&r.ok){ links.push(r.url); } else { toast('⚠️ Foto '+(i+1)+': '+((r&&r.error)||'no se pudo'),'error'); }
+    }catch(e){ toast('No se pudo procesar la foto '+(i+1),'error'); }
+  }
+  if(links.length){
+    mkFotoUrl=links.join(' | ');
+    var lk=document.getElementById('mk-foto-link');
+    if(lk) lk.innerHTML='✅ '+links.length+' foto(s) en Drive: '+links.map(function(u,i){ return '<a href="'+u+'" target="_blank" style="color:var(--mint)">#'+(i+1)+'</a>'; }).join(' · ');
+    toast('✅ '+links.length+' foto(s) guardada(s)','ok');
+  }
 }
 // Limpiar el facturador (empezar una factura nueva)
 function limpiarFactura(){

@@ -420,6 +420,7 @@ html,body{overflow-x:hidden;max-width:100vw}
       <div class="nav-item" onclick="show('contador',this)"><i class="ti ti-calculator"></i> Contador IA</div>
       <div class="nav-item" onclick="show('ceo',this)"><i class="ti ti-crown"></i> Panel CEO</div>
       <div class="nav-item" onclick="show('asistente',this)"><i class="ti ti-robot"></i> Asistente IA</div>
+      <div class="nav-item" onclick="closeSidebar();revisarInventario()"><i class="ti ti-clipboard-check"></i> Revisor Inventario IA</div>
 
       <div class="nav-group">Dinero</div>
       <div class="nav-item" onclick="show('contabilidad',this)"><i class="ti ti-notebook"></i> Contabilidad</div>
@@ -438,6 +439,7 @@ html,body{overflow-x:hidden;max-width:100vw}
       <div class="nav-item" onclick="show('base',this)"><i class="ti ti-address-book"></i> Base de clientes</div>
       <div class="nav-item" onclick="show('recompras',this)"><i class="ti ti-refresh-alert"></i> Recompras</div>
       <div class="nav-item" onclick="show('facturador',this)"><i class="ti ti-file-invoice"></i> Facturador</div>
+      <div class="nav-item" onclick="show('market',this)"><i class="ti ti-building-store"></i> Subir a Marketplace</div>
 
       <div class="nav-group">Organización</div>
       <div class="nav-item" onclick="show('tareas',this)"><i class="ti ti-checklist"></i> Tareas</div>
@@ -783,7 +785,98 @@ html,body{overflow-x:hidden;max-width:100vw}
           <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:800;color:var(--mint)"><span>TOTAL</span><span id="fac-total">$ 0</span></div>
         </div>
 
-        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:14px" onclick="descargarFactura()"><i class="ti ti-download"></i> Descargar PDF y guardar</button>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="flex:1;justify-content:center;min-width:170px" onclick="descargarFactura()"><i class="ti ti-download"></i> Descargar PDF y guardar</button>
+          <button class="btn btn-danger" style="flex-shrink:0;justify-content:center" onclick="limpiarFactura()"><i class="ti ti-eraser"></i> Limpiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBIR A MARKETPLACE -->
+    <div class="page" id="page-market">
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="ti ti-sparkles"></i> Extraer con IA</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Copia la info del producto de cualquier página, pégala aquí y la IA llena los campos de abajo. <strong>Revisa siempre antes de guardar.</strong></div>
+        <textarea id="mk-extraer-texto" rows="4" placeholder="Pega aquí el texto del producto (nombre, descripción, características...)" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-size:13px;background:var(--panel-2);color:var(--text);font-family:inherit;resize:vertical"></textarea>
+        <button class="btn btn-gold" style="width:100%;justify-content:center;margin-top:8px" onclick="extraerProductoIAapp()"><i class="ti ti-wand"></i> Organizar con IA</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="ti ti-camera"></i> Foto del producto</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Sube la foto y se guarda en tu Drive (carpeta <strong>FOTOS_ARTEMISA</strong>). El enlace queda listo para el marketplace.</div>
+        <input id="mk-foto" type="file" accept="image/*" onchange="subirFotoMarket(this)" style="font-size:13px;color:var(--text)">
+        <div style="margin-top:10px"><img id="mk-foto-prev" alt="" style="display:none;max-width:160px;border-radius:10px;border:1px solid var(--border)"></div>
+        <div id="mk-foto-link" style="margin-top:6px;font-size:12px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="ti ti-building-store"></i> Datos del producto</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Quedan ordenados para ADDI y Luegopago. Se guardan en tu hoja PRODUCTOS_MARKET.</div>
+
+        <div class="form-group"><label>Plataforma destino</label>
+          <select id="mk-destino"><option value="ADDI">ADDI</option><option value="LUEGOPAGO">Luegopago</option><option value="AMBAS">Ambas</option></select>
+        </div>
+
+        <div style="font-size:13px;font-weight:700;margin:14px 0 8px;color:var(--text)"><i class="ti ti-info-circle"></i> Información básica</div>
+        <div class="form-group"><label>Nombre*</label><input id="mk-nombre" placeholder="Nombre claro con tipo y característica"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Marca</label><input id="mk-marca" placeholder="Marca"></div>
+          <div class="form-group"><label>Categoría</label><input id="mk-categoria" placeholder="Categoría"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Código de referencia</label><input id="mk-ref" placeholder="Ref / SKU"></div>
+          <div class="form-group"><label>EAN / UPC</label><input id="mk-ean" placeholder="Código de barras"></div>
+        </div>
+        <div class="form-group"><label>Descripción <span id="mk-desc-count" style="color:var(--muted);font-size:11px">0/3000</span></label>
+          <textarea id="mk-descripcion" rows="4" maxlength="3000" placeholder="Resumen de las principales características del producto" oninput="mkContar()" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-size:13px;background:var(--panel-2);color:var(--text);font-family:inherit;resize:vertical"></textarea>
+        </div>
+
+        <div style="font-size:13px;font-weight:700;margin:14px 0 8px;color:var(--text)"><i class="ti ti-ruler-2"></i> Dimensiones del paquete</div>
+        <div class="form-row">
+          <div class="form-group"><label>Peso (g)</label><input id="mk-peso" type="number" inputmode="decimal" placeholder="0"></div>
+          <div class="form-group"><label>Anchura (cm)</label><input id="mk-anchura" type="number" inputmode="decimal" placeholder="0"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Altura (cm)</label><input id="mk-altura" type="number" inputmode="decimal" placeholder="0"></div>
+          <div class="form-group"><label>Longitud (cm)</label><input id="mk-longitud" type="number" inputmode="decimal" placeholder="0"></div>
+        </div>
+
+        <div style="font-size:13px;font-weight:700;margin:14px 0 8px;color:var(--text)"><i class="ti ti-list-details"></i> Atributos (ADDI)</div>
+        <div class="form-group"><label>1. Garantía</label><input id="mk-garantia" placeholder="Ej: 30 días / 1 año"></div>
+        <div class="form-group"><label>2. Modo de uso</label><textarea id="mk-modouso" rows="2" placeholder="Cómo se usa el producto" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-size:13px;background:var(--panel-2);color:var(--text);font-family:inherit;resize:vertical"></textarea></div>
+        <div class="form-group"><label>3. Componentes</label><textarea id="mk-componentes" rows="2" placeholder="Ingredientes / componentes" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-size:13px;background:var(--panel-2);color:var(--text);font-family:inherit;resize:vertical"></textarea></div>
+        <div class="form-group"><label>4. Contraindicaciones</label><textarea id="mk-contraindicaciones" rows="2" placeholder="Contraindicaciones" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-size:13px;background:var(--panel-2);color:var(--text);font-family:inherit;resize:vertical"></textarea></div>
+        <div class="form-row">
+          <div class="form-group"><label>5. Presentación</label><input id="mk-presentacion" placeholder="Ej: Frasco 60ml"></div>
+          <div class="form-group"><label>6. Invima</label><input id="mk-invima" placeholder="Registro Invima"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="flex:1;justify-content:center;min-width:170px" onclick="guardarMarket()"><i class="ti ti-cloud-upload"></i> Guardar en PRODUCTOS_MARKET</button>
+          <button class="btn btn-danger" style="flex-shrink:0;justify-content:center" onclick="limpiarMarket()"><i class="ti ti-eraser"></i> Limpiar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="ti ti-calculator"></i> Precio para marketplace</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Pon tu costo, cuánto quieres ganar y el % que te quita la plataforma. Te doy el precio a publicar.</div>
+        <div class="form-row">
+          <div class="form-group"><label>Costo del producto ($)</label><input id="mk-costo" type="number" inputmode="numeric" placeholder="0" oninput="calcMarket()"></div>
+          <div class="form-group"><label>Ganancia que quiero (%)</label><input id="mk-margen" type="number" inputmode="decimal" value="40" oninput="calcMarket()"></div>
+        </div>
+        <div class="form-group"><label>Comisión plataforma (%)</label>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <input id="mk-comision" type="number" inputmode="decimal" value="19" oninput="calcMarket()" style="flex:1;min-width:90px">
+            <button class="btn btn-sm" onclick="document.getElementById('mk-comision').value=19;calcMarket()">ADDI 19%</button>
+            <button class="btn btn-sm" onclick="document.getElementById('mk-comision').value=23;calcMarket()">Luegopago 23%</button>
+          </div>
+        </div>
+        <div class="calc-result">
+          <div class="calc-item"><div class="calc-item-label">Precio a publicar</div><div class="calc-item-value" id="mk-precio" style="color:var(--pink)">—</div></div>
+          <div class="calc-item"><div class="calc-item-label">Comisión plataforma</div><div class="calc-item-value" id="mk-comi-val">—</div></div>
+          <div class="calc-item"><div class="calc-item-label">Te queda (ganancia)</div><div class="calc-item-value" id="mk-ganancia" style="color:#1a7a3a">—</div></div>
+        </div>
+        <button class="btn btn-sm" style="width:100%;justify-content:center;margin-top:10px" onclick="mkUsarPrecio()"><i class="ti ti-arrow-up-circle"></i> Usar este precio al guardar</button>
       </div>
     </div>
 
@@ -793,7 +886,10 @@ html,body{overflow-x:hidden;max-width:100vw}
         <div class="modal-header"><span class="modal-title"><i class="ti ti-clipboard-plus"></i> Pegar datos del cliente</span><button class="btn btn-sm" onclick="closeModal('fac-pegar-modal')"><i class="ti ti-x"></i></button></div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Pega los datos tal como te llegan. Yo saco el nombre, documento, teléfono y dirección.</div>
         <textarea id="fac-pegar-texto" rows="7" placeholder="MARLON MONTES&#10;1006510272&#10;318 212 1797&#10;correo@...&#10;Dirección...&#10;Bogotá" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-size:13px;background:var(--panel-2);color:var(--text);font-family:inherit;resize:vertical"></textarea>
-        <button class="btn btn-gold" style="width:100%;justify-content:center;margin-top:8px" onclick="organizarFacPegado()"><i class="ti ti-wand"></i> Organizar y llenar</button>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-gold" style="flex:1;justify-content:center" onclick="organizarFacPegado()"><i class="ti ti-wand"></i> Organizar y llenar</button>
+          <button class="btn btn-danger" style="flex-shrink:0;justify-content:center" onclick="document.getElementById('fac-pegar-texto').value='';document.getElementById('fac-pegar-guardar').innerHTML='';"><i class="ti ti-eraser"></i> Limpiar</button>
+        </div>
         <div id="fac-pegar-guardar" style="margin-top:10px"></div>
       </div>
     </div>
@@ -1444,6 +1540,118 @@ function calcPlataforma(){
   set('plat-ivaval', usaIva?fmt(Math.round(ivaVal)):'—');
   set('plat-neto', fmt(Math.round(R)));
 }
+// ====== SUBIR A MARKETPLACE ======
+var mkPrecioCalc=0;
+function mkContar(){ var t=document.getElementById('mk-descripcion'), c=document.getElementById('mk-desc-count'); if(t&&c) c.textContent=t.value.length+'/3000'; }
+function calcMarket(){
+  var g=function(id){ return document.getElementById(id); };
+  var set=function(id,v){ var e=g(id); if(e) e.textContent=v; };
+  var C=parseFloat(g('mk-costo').value)||0;
+  var m=parseFloat(g('mk-margen').value)||0;
+  var c=parseFloat(g('mk-comision').value)||0;
+  if(C<=0 || m>=100 || c>=100){ ['mk-precio','mk-comi-val','mk-ganancia'].forEach(function(id){ set(id,'—'); }); mkPrecioCalc=0; return; }
+  var precioBase=C/(1-m/100);          // precio con mi ganancia
+  var precioPublicar=precioBase/(1-c/100); // + lo que se lleva la plataforma
+  var comisionVal=precioPublicar-precioBase;
+  var ganancia=precioBase-C;
+  mkPrecioCalc=Math.round(precioPublicar);
+  set('mk-precio', fmt(Math.round(precioPublicar)));
+  set('mk-comi-val', fmt(Math.round(comisionVal)));
+  set('mk-ganancia', fmt(Math.round(ganancia)));
+}
+function mkUsarPrecio(){
+  if(mkPrecioCalc>0) toast('Precio '+fmt(mkPrecioCalc)+' se guardará con el producto','ok');
+  else toast('Primero llena el costo en la calculadora','warn');
+}
+function limpiarMarket(){
+  ['mk-nombre','mk-marca','mk-categoria','mk-ref','mk-ean','mk-descripcion','mk-peso','mk-anchura','mk-altura','mk-longitud','mk-garantia','mk-modouso','mk-componentes','mk-contraindicaciones','mk-presentacion','mk-invima','mk-costo'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+  var mm=document.getElementById('mk-margen'); if(mm) mm.value='40';
+  var cc=document.getElementById('mk-comision'); if(cc) cc.value='19';
+  // limpiar extractor y foto
+  var ex=document.getElementById('mk-extraer-texto'); if(ex) ex.value='';
+  var fi=document.getElementById('mk-foto'); if(fi) fi.value='';
+  var pv=document.getElementById('mk-foto-prev'); if(pv){ pv.src=''; pv.style.display='none'; }
+  var fl=document.getElementById('mk-foto-link'); if(fl) fl.innerHTML='';
+  mkFotoUrl='';
+  mkPrecioCalc=0; calcMarket(); mkContar();
+  toast('Formulario limpio','ok');
+}
+async function guardarMarket(){
+  var g=function(id){ var e=document.getElementById(id); return e?String(e.value).trim():''; };
+  var nombre=g('mk-nombre');
+  if(!nombre){ toast('Escribe al menos el nombre','warn'); var n=document.getElementById('mk-nombre'); if(n) n.focus(); return; }
+  var datos={
+    nombre:nombre, marca:g('mk-marca'), categoria:g('mk-categoria'), ref:g('mk-ref'), ean:g('mk-ean'),
+    descripcion:g('mk-descripcion'), peso:g('mk-peso'), anchura:g('mk-anchura'), altura:g('mk-altura'), longitud:g('mk-longitud'),
+    garantia:g('mk-garantia'), modouso:g('mk-modouso'), componentes:g('mk-componentes'), contraindicaciones:g('mk-contraindicaciones'),
+    presentacion:g('mk-presentacion'), invima:g('mk-invima'),
+    costo:g('mk-costo'), margen:g('mk-margen'), plataforma:g('mk-comision'), precio:(mkPrecioCalc||''), destino:g('mk-destino'),
+    foto:mkFotoUrl
+  };
+  toast('Guardando producto...','');
+  var r=await enviarASheetFull('addProductoMarket', datos);
+  if(r && r.ok){ toast('✅ Guardado en PRODUCTOS_MARKET','ok'); limpiarMarket(); }
+  else { toast('⚠️ '+((r&&r.error)||'No se pudo guardar. Revisa la conexión.'),'error'); }
+}
+// --- Extractor de productos con IA ---
+async function extraerProductoIAapp(){
+  var txt=(document.getElementById('mk-extraer-texto').value||'').trim();
+  if(!txt){ toast('Pega primero la info del producto','warn'); return; }
+  toast('Organizando con IA... (unos segundos)','');
+  var ctrl=new AbortController(); var t=setTimeout(function(){ ctrl.abort(); },45000);
+  try{
+    var fd=new FormData(); fd.append('accion','extraerProductoIA'); fd.append('texto',txt);
+    var r=await fetch(SHEET_URL,{method:'POST',body:fd,signal:ctrl.signal}).then(function(x){return x.json();});
+    clearTimeout(t);
+    if(r&&r.ok&&r.producto){ llenarFormMarket(r.producto); toast('✅ Campos llenados, revísalos antes de guardar','ok'); }
+    else{ toast('⚠️ '+((r&&r.error)||'La IA no pudo organizar'),'error'); }
+  }catch(e){ clearTimeout(t); toast('La IA tardó mucho o no hay conexión','error'); }
+}
+function llenarFormMarket(o){
+  var map={nombre:'mk-nombre',marca:'mk-marca',categoria:'mk-categoria',ean:'mk-ean',descripcion:'mk-descripcion',peso:'mk-peso',anchura:'mk-anchura',altura:'mk-altura',longitud:'mk-longitud',garantia:'mk-garantia',modouso:'mk-modouso',componentes:'mk-componentes',contraindicaciones:'mk-contraindicaciones',presentacion:'mk-presentacion',invima:'mk-invima'};
+  Object.keys(map).forEach(function(k){ var e=document.getElementById(map[k]); if(e && o[k]!=null && String(o[k]).trim()!=='') e.value=o[k]; });
+  mkContar();
+}
+// --- Foto del producto a Drive ---
+var mkFotoUrl='';
+function comprimirImagen(file,maxLado,calidad){
+  return new Promise(function(resolve,reject){
+    var url=URL.createObjectURL(file); var img=new Image();
+    img.onload=function(){
+      var w=img.width,h=img.height;
+      if(w>=h && w>maxLado){ h=Math.round(h*maxLado/w); w=maxLado; }
+      else if(h>w && h>maxLado){ w=Math.round(w*maxLado/h); h=maxLado; }
+      var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      resolve(cv.toDataURL('image/jpeg',calidad));
+    };
+    img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('img')); };
+    img.src=url;
+  });
+}
+async function subirFotoMarket(input){
+  var file=input.files&&input.files[0]; if(!file) return;
+  toast('Procesando foto...','');
+  try{
+    var dataUrl=await comprimirImagen(file,1000,0.82);
+    var prev=document.getElementById('mk-foto-prev'); if(prev){ prev.src=dataUrl; prev.style.display='block'; }
+    var nombre=(document.getElementById('mk-nombre').value||'producto');
+    var fd=new FormData(); fd.append('accion','subirFoto'); fd.append('nombre',nombre); fd.append('img',dataUrl);
+    toast('Subiendo a Drive...','');
+    var r=await fetch(SHEET_URL,{method:'POST',body:fd}).then(function(x){return x.json();});
+    if(r&&r.ok){ mkFotoUrl=r.directo||r.url||''; var lk=document.getElementById('mk-foto-link'); if(lk) lk.innerHTML='✅ <a href="'+r.url+'" target="_blank" style="color:var(--mint)">Ver foto en Drive</a>'; toast('✅ Foto guardada en Drive','ok'); }
+    else{ toast('⚠️ '+((r&&r.error)||'No se pudo subir la foto'),'error'); }
+  }catch(e){ toast('No se pudo procesar/subir la foto','error'); }
+}
+// Limpiar el facturador (empezar una factura nueva)
+function limpiarFactura(){
+  ['fac-cli','fac-doc','fac-tel','fac-dir','fac-guia'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+  var env=document.getElementById('fac-envio'); if(env) env.value='0';
+  facItems=[{desc:'',cant:1,precio:0}];
+  renderFacItems(); renderFacturaPreview();
+  toast('Factura limpia','ok');
+}
 function filtrarMenu(q){
   q=(q||'').trim().toLowerCase();
   var nav=document.querySelector('.nav'); if(!nav) return;
@@ -1492,6 +1700,7 @@ function show(page,el) {
     cargarNumFactura();
   }
   if(page==='balance'){ renderBalance(); }
+  if(page==='market'){ calcMarket(); mkContar(); }
   if(page==='ceo'){
     if(!baseClientes||!baseClientes.length) cargarBaseClientes();
     if(!recompras||!recompras.length) cargarRecompras();

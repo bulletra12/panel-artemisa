@@ -1720,6 +1720,27 @@ function procesarFotoParaTam(dataUrl, modo){
     img.src=dataUrl;
   });
 }
+// Copiar texto al portapapeles con feedback
+function copiarTexto(txt, btn){
+  function ok(){ if(btn){ var o=btn.innerHTML; btn.innerHTML='<i class="ti ti-check"></i>'; setTimeout(function(){ btn.innerHTML=o; },1200); } toast('Link copiado','ok'); }
+  function fallback(){ var t=document.createElement('textarea'); t.value=txt; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); try{ document.execCommand('copy'); ok(); }catch(_){ toast('Copia manual','warn'); } document.body.removeChild(t); }
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(ok, fallback); } else { fallback(); } }catch(e){ fallback(); }
+}
+// Muestra el link de la foto de Drive con botón de copiar
+function mostrarLinkFoto(fileUrl, directo){
+  var cont=document.getElementById('mk-foto-link'); if(!cont) return;
+  var link=directo||fileUrl;
+  var row=document.createElement('div');
+  row.style.cssText='display:flex;gap:6px;align-items:center;margin-top:5px';
+  var inp=document.createElement('input');
+  inp.readOnly=true; inp.value=link; inp.onclick=function(){ this.select(); };
+  inp.style.cssText='flex:1;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--panel-2);color:var(--text)';
+  var bCopy=document.createElement('button'); bCopy.type='button'; bCopy.className='btn btn-sm'; bCopy.innerHTML='<i class="ti ti-copy"></i>';
+  bCopy.onclick=function(){ copiarTexto(link, bCopy); };
+  var aVer=document.createElement('a'); aVer.href=fileUrl; aVer.target='_blank'; aVer.className='btn btn-sm'; aVer.style.textDecoration='none'; aVer.innerHTML='<i class="ti ti-external-link"></i>';
+  row.appendChild(inp); row.appendChild(bCopy); row.appendChild(aVer);
+  cont.appendChild(row);
+}
 // Convierte cualquier imagen (incluido webp) a JPG vía canvas
 function forzarJpg(dataUrl){
   return new Promise(function(resolve){
@@ -1753,8 +1774,8 @@ async function subirFotoDesdeURL(){
     toast('Subiendo a Drive como JPG...','');
     var r2=await fetch(SHEET_URL,{method:'POST',body:fd}).then(function(x){return x.json();});
     if(r2&&r2.ok){
-      mkFotoUrl = mkFotoUrl ? (mkFotoUrl+' | '+r2.url) : r2.url;
-      var lk=document.getElementById('mk-foto-link'); if(lk) lk.innerHTML += ' <a href="'+r2.url+'" target="_blank" style="color:var(--mint)">(del enlace)</a>';
+      mkFotoUrl = mkFotoUrl ? (mkFotoUrl+' | '+(r2.directo||r2.url)) : (r2.directo||r2.url);
+      mostrarLinkFoto(r2.url, r2.directo);
       document.getElementById('mk-foto-url').value='';
       toast('✅ Imagen del enlace guardada en JPG','ok');
     } else { toast('⚠️ '+((r2&&r2.error)||'No se pudo subir'),'error'); }
@@ -1763,6 +1784,7 @@ async function subirFotoDesdeURL(){
 async function subirFotoMarket(input){
   var files=input.files; if(!files||!files.length) return;
   var cont=document.getElementById('mk-foto-prev-cont'); if(cont) cont.innerHTML='';
+  var linksBox=document.getElementById('mk-foto-link'); if(linksBox) linksBox.innerHTML='';
   var tamSel=document.getElementById('mk-foto-tam'); var modo=tamSel?tamSel.value:'original';
   var links=[];
   for(var i=0;i<files.length;i++){
@@ -1774,13 +1796,11 @@ async function subirFotoMarket(input){
       var nombre=(document.getElementById('mk-nombre').value||'producto')+'_'+(i+1);
       var fd=new FormData(); fd.append('accion','subirFoto'); fd.append('nombre',nombre); fd.append('img',dataUrl);
       var r=await fetch(SHEET_URL,{method:'POST',body:fd}).then(function(x){return x.json();});
-      if(r&&r.ok){ links.push(r.url); } else { toast('⚠️ Foto '+(i+1)+': '+((r&&r.error)||'no se pudo'),'error'); }
+      if(r&&r.ok){ links.push(r.directo||r.url); mostrarLinkFoto(r.url, r.directo); } else { toast('⚠️ Foto '+(i+1)+': '+((r&&r.error)||'no se pudo'),'error'); }
     }catch(e){ toast('No se pudo procesar la foto '+(i+1),'error'); }
   }
   if(links.length){
     mkFotoUrl=links.join(' | ');
-    var lk=document.getElementById('mk-foto-link');
-    if(lk) lk.innerHTML='✅ '+links.length+' foto(s) en Drive: '+links.map(function(u,i){ return '<a href="'+u+'" target="_blank" style="color:var(--mint)">#'+(i+1)+'</a>'; }).join(' · ');
     toast('✅ '+links.length+' foto(s) guardada(s)','ok');
   }
 }

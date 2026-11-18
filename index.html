@@ -847,8 +847,10 @@ html,body{overflow-x:hidden;max-width:100vw}
         <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Quedan ordenados para ADDI y Luegopago. Se guardan en tu hoja PRODUCTOS_MARKET.</div>
 
         <div class="form-group"><label>Plataforma destino</label>
-          <select id="mk-destino"><option value="ADDI">ADDI</option><option value="LUEGOPAGO">Luegopago</option><option value="AMBAS">Ambas</option></select>
+          <select id="mk-destino" onchange="if(document.getElementById('mk-orden').innerHTML) verOrdenPlataforma()"><option value="ADDI">ADDI</option><option value="LUEGOPAGO">Luegopago</option><option value="AMBAS">Ambas</option></select>
         </div>
+        <button type="button" class="btn btn-sm" style="margin-bottom:6px" onclick="verOrdenPlataforma()"><i class="ti ti-list-numbers"></i> Ver campos en el orden de la plataforma</button>
+        <div id="mk-orden"></div>
 
         <div style="font-size:13px;font-weight:700;margin:14px 0 8px;color:var(--text)"><i class="ti ti-info-circle"></i> Información básica</div>
         <div class="form-group"><label>Nombre*</label><input id="mk-nombre" placeholder="Nombre claro con tipo y característica"></div>
@@ -1653,7 +1655,7 @@ async function guardarMarket(){
   };
   toast('Guardando producto...','');
   var r=await enviarASheetFull('addProductoMarket', datos);
-  if(r && r.ok){ toast('✅ Guardado en PRODUCTOS_MARKET','ok'); limpiarMarket(); }
+  if(r && r.ok){ toast('✅ Guardado'+(r.sku?(' como '+r.sku):'')+' en PRODUCTOS_MARKET','ok'); limpiarMarket(); }
   else { toast('⚠️ '+((r&&r.error)||'No se pudo guardar. Revisa la conexión.'),'error'); }
 }
 // --- Extractor de productos con IA ---
@@ -1672,6 +1674,8 @@ async function extraerProductoIAapp(){
 }
 function llenarFormMarket(o){
   var map={nombre:'mk-nombre',marca:'mk-marca',categoria:'mk-categoria',ean:'mk-ean',descripcion:'mk-descripcion',peso:'mk-peso',anchura:'mk-anchura',altura:'mk-altura',longitud:'mk-longitud',garantia:'mk-garantia',modouso:'mk-modouso',componentes:'mk-componentes',contraindicaciones:'mk-contraindicaciones',presentacion:'mk-presentacion',invima:'mk-invima'};
+  // Limpiar primero para que una descripción nueva reemplace por completo (no mezcle con el producto anterior)
+  Object.keys(map).forEach(function(k){ var e=document.getElementById(map[k]); if(e) e.value=''; });
   Object.keys(map).forEach(function(k){ var e=document.getElementById(map[k]); if(e && o[k]!=null && String(o[k]).trim()!=='') e.value=o[k]; });
   mkContar();
 }
@@ -1720,6 +1724,44 @@ function procesarFotoParaTam(dataUrl, modo){
     img.src=dataUrl;
   });
 }
+// Muestra los campos en el orden que pide la plataforma, cada uno con botón de copiar
+function verOrdenPlataforma(){
+  var dest=(document.getElementById('mk-destino')||{}).value||'ADDI';
+  var g=function(id){ var e=document.getElementById(id); return e?e.value.trim():''; };
+  var campos={
+    'Nombre':g('mk-nombre'),'Marca':g('mk-marca'),'Categoría':g('mk-categoria'),
+    'Código de referencia (SKU)':g('mk-ref'),'EAN/UPC':g('mk-ean'),'Descripción':g('mk-descripcion'),
+    'Peso (kg)':g('mk-peso'),'Anchura (cm)':g('mk-anchura'),'Altura (cm)':g('mk-altura'),'Longitud (cm)':g('mk-longitud'),
+    'Garantía':g('mk-garantia'),'Modo de uso':g('mk-modouso'),'Componentes':g('mk-componentes'),
+    'Contraindicaciones':g('mk-contraindicaciones'),'Presentación':g('mk-presentacion'),'Invima':g('mk-invima')
+  };
+  var orden;
+  if(dest==='LUEGOPAGO'){
+    orden=['Nombre','Descripción','Código de referencia (SKU)','Marca','Categoría','EAN/UPC','Peso (kg)','Anchura (cm)','Altura (cm)','Longitud (cm)'];
+  } else { // ADDI (y Ambas) usan el orden de ADDI
+    orden=['Nombre','Marca','Categoría','Código de referencia (SKU)','EAN/UPC','Descripción','Peso (kg)','Anchura (cm)','Altura (cm)','Longitud (cm)','Garantía','Modo de uso','Componentes','Contraindicaciones','Presentación','Invima'];
+  }
+  var cont=document.getElementById('mk-orden'); if(!cont) return;
+  cont.innerHTML='';
+  var head=document.createElement('div');
+  head.style.cssText='font-size:12px;font-weight:700;color:var(--text);margin:4px 0 8px';
+  head.textContent='Orden para '+(dest==='LUEGOPAGO'?'Luegopago':'ADDI')+' — copia cada campo en su casilla';
+  cont.appendChild(head);
+  orden.forEach(function(lbl){
+    var val=campos[lbl]||'';
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)';
+    var box=document.createElement('div'); box.style.cssText='flex:1;min-width:0';
+    var l=document.createElement('div'); l.style.cssText='font-size:11px;color:var(--muted)'; l.textContent=lbl;
+    var v=document.createElement('div'); v.style.cssText='font-size:13px;color:var(--text);word-break:break-word';
+    if(val) v.textContent=val; else { v.textContent='(vacío)'; v.style.color='var(--faint)'; }
+    box.appendChild(l); box.appendChild(v);
+    var bc=document.createElement('button'); bc.type='button'; bc.className='btn btn-sm'; bc.style.flexShrink='0'; bc.innerHTML='<i class="ti ti-copy"></i>';
+    bc.onclick=(function(x){ return function(){ if(x) copiarTexto(x, bc); else toast('Ese campo está vacío','warn'); }; })(val);
+    row.appendChild(box); row.appendChild(bc);
+    cont.appendChild(row);
+  });
+}
 // Copiar texto al portapapeles con feedback
 function copiarTexto(txt, btn){
   function ok(){ if(btn){ var o=btn.innerHTML; btn.innerHTML='<i class="ti ti-check"></i>'; setTimeout(function(){ btn.innerHTML=o; },1200); } toast('Link copiado','ok'); }
@@ -1727,18 +1769,26 @@ function copiarTexto(txt, btn){
   try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(ok, fallback); } else { fallback(); } }catch(e){ fallback(); }
 }
 // Muestra el link de la foto de Drive con botón de copiar
-function mostrarLinkFoto(fileUrl, directo){
+function mostrarLinkFoto(fileUrl, directo, jpgData, nombreBase){
   var cont=document.getElementById('mk-foto-link'); if(!cont) return;
   var link=directo||fileUrl;
   var row=document.createElement('div');
   row.style.cssText='display:flex;gap:6px;align-items:center;margin-top:5px';
   var inp=document.createElement('input');
   inp.readOnly=true; inp.value=link; inp.onclick=function(){ this.select(); };
-  inp.style.cssText='flex:1;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--panel-2);color:var(--text)';
-  var bCopy=document.createElement('button'); bCopy.type='button'; bCopy.className='btn btn-sm'; bCopy.innerHTML='<i class="ti ti-copy"></i>';
+  inp.style.cssText='flex:1;min-width:0;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--panel-2);color:var(--text)';
+  var bCopy=document.createElement('button'); bCopy.type='button'; bCopy.className='btn btn-sm'; bCopy.title='Copiar link'; bCopy.innerHTML='<i class="ti ti-copy"></i>';
   bCopy.onclick=function(){ copiarTexto(link, bCopy); };
-  var aVer=document.createElement('a'); aVer.href=fileUrl; aVer.target='_blank'; aVer.className='btn btn-sm'; aVer.style.textDecoration='none'; aVer.innerHTML='<i class="ti ti-external-link"></i>';
-  row.appendChild(inp); row.appendChild(bCopy); row.appendChild(aVer);
+  row.appendChild(inp); row.appendChild(bCopy);
+  // Botón descargar (jpg) — usa la imagen procesada local
+  if(jpgData){
+    var aDl=document.createElement('a');
+    aDl.href=jpgData; aDl.download=((nombreBase||'foto').replace(/[^a-zA-Z0-9]+/g,'_').slice(0,40))+'.jpg';
+    aDl.className='btn btn-sm'; aDl.title='Descargar jpg'; aDl.style.textDecoration='none'; aDl.innerHTML='<i class="ti ti-download"></i>';
+    row.appendChild(aDl);
+  }
+  var aVer=document.createElement('a'); aVer.href=fileUrl; aVer.target='_blank'; aVer.className='btn btn-sm'; aVer.title='Ver en Drive'; aVer.style.textDecoration='none'; aVer.innerHTML='<i class="ti ti-external-link"></i>';
+  row.appendChild(aVer);
   cont.appendChild(row);
 }
 // Convierte cualquier imagen (incluido webp) a JPG vía canvas
@@ -1775,7 +1825,7 @@ async function subirFotoDesdeURL(){
     var r2=await fetch(SHEET_URL,{method:'POST',body:fd}).then(function(x){return x.json();});
     if(r2&&r2.ok){
       mkFotoUrl = mkFotoUrl ? (mkFotoUrl+' | '+(r2.directo||r2.url)) : (r2.directo||r2.url);
-      mostrarLinkFoto(r2.url, r2.directo);
+      mostrarLinkFoto(r2.url, r2.directo, jpg, nombre);
       document.getElementById('mk-foto-url').value='';
       toast('✅ Imagen del enlace guardada en JPG','ok');
     } else { toast('⚠️ '+((r2&&r2.error)||'No se pudo subir'),'error'); }
@@ -1796,7 +1846,7 @@ async function subirFotoMarket(input){
       var nombre=(document.getElementById('mk-nombre').value||'producto')+'_'+(i+1);
       var fd=new FormData(); fd.append('accion','subirFoto'); fd.append('nombre',nombre); fd.append('img',dataUrl);
       var r=await fetch(SHEET_URL,{method:'POST',body:fd}).then(function(x){return x.json();});
-      if(r&&r.ok){ links.push(r.directo||r.url); mostrarLinkFoto(r.url, r.directo); } else { toast('⚠️ Foto '+(i+1)+': '+((r&&r.error)||'no se pudo'),'error'); }
+      if(r&&r.ok){ links.push(r.directo||r.url); mostrarLinkFoto(r.url, r.directo, dataUrl, nombre); } else { toast('⚠️ Foto '+(i+1)+': '+((r&&r.error)||'no se pudo'),'error'); }
     }catch(e){ toast('No se pudo procesar la foto '+(i+1),'error'); }
   }
   if(links.length){

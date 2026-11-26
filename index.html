@@ -402,6 +402,48 @@ html,body{overflow-x:hidden;max-width:100vw}
 .login-btn{width:100%;padding:14px;background:var(--mint);color:var(--mint-ink);border:none;border-radius:13px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.02em}
 .login-btn:hover{background:var(--mint-d)}
 .login-error{color:var(--coral);font-size:12px;margin-top:8px;min-height:18px}
+/* ===== PULIDO VISUAL Y MICRO-INTERACCIONES ===== */
+/* Feedback al presionar (responde a la acción del usuario) */
+.btn:active{transform:scale(.96)}
+.nav-item:active{transform:scale(.985)}
+.chk:active{transform:scale(.9)}
+.chat-fab:active,.voz-fab:active{transform:scale(.9)}
+
+/* Realce en elementos accionables (son clickeables de verdad) */
+.prod-item{transition:background .15s, padding-left .15s}
+.prod-item:hover{background:var(--mint-soft);padding-left:17px}
+.dash-row{border-radius:9px;transition:background .15s}
+.dash-row:hover{background:var(--panel-2)}
+tbody tr{transition:background .12s}
+tbody tr:hover{background:var(--mint-soft)}
+
+/* Indicador de sección activa en el menú (barra de acento que crece) */
+.nav-item{position:relative}
+.nav-item::before{content:"";position:absolute;left:3px;top:50%;transform:translateY(-50%);width:3px;height:0;background:var(--mint);border-radius:2px;transition:height .2s ease}
+.nav-item.active::before{height:58%}
+
+/* Entrada orquestada del dashboard (un solo momento al cargar/entrar) */
+#page-dashboard.active .kpi{animation:kpiIn .5s cubic-bezier(.2,.7,.2,1) backwards}
+#page-dashboard.active .kpi:nth-child(2){animation-delay:.05s}
+#page-dashboard.active .kpi:nth-child(3){animation-delay:.1s}
+#page-dashboard.active .kpi:nth-child(4){animation-delay:.15s}
+@keyframes kpiIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+
+/* Brillo de revelado (una vez) en la tarjeta hero */
+.kpi.hero{position:relative;overflow:hidden}
+.kpi.hero::after{content:"";position:absolute;top:0;left:-60%;width:38%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.14),transparent);transform:skewX(-18deg);animation:heroShine 1.8s ease-out .5s 1 both}
+@keyframes heroShine{to{left:130%}}
+
+/* Shimmer de carga para secciones que consultan datos */
+.shimmer{position:relative;overflow:hidden;background:var(--panel-2);border-radius:10px;min-height:14px}
+.shimmer::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,var(--mint-soft),transparent);transform:translateX(-100%);animation:shimmerMove 1.3s infinite}
+@keyframes shimmerMove{to{transform:translateX(100%)}}
+
+/* Respeta "reducir movimiento" del sistema */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .prod-item:hover{padding-left:13px}
+}
 </style>
 </head>
 <body>
@@ -472,7 +514,10 @@ html,body{overflow-x:hidden;max-width:100vw}
     <div class="topbar">
       <div style="display:flex;align-items:center;gap:10px">
         <div class="hamburger" onclick="openSidebar()"><i class="ti ti-menu-2"></i></div>
-        <span class="topbar-title" id="page-title">Dashboard</span>
+        <div style="display:flex;flex-direction:column;line-height:1.15;min-width:0">
+          <span class="topbar-title" id="page-title">Dashboard</span>
+          <span id="page-subtitle" style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Resumen de tu negocio hoy</span>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button class="btn btn-sm" id="theme-toggle" onclick="toggleTema()" title="Cambiar tema claro/oscuro" style="padding:6px 9px"><i class="ti ti-moon" id="theme-icon"></i></button>
@@ -1276,6 +1321,21 @@ html,body{overflow-x:hidden;max-width:100vw}
   </div>
 </div>
 
+<div id="ajuste-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Ajustar stock</span><button class="btn btn-sm" onclick="closeModal('ajuste-modal')"><i class="ti ti-x"></i></button></div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:2px" id="aj-nombre">—</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px" id="aj-stock-actual">Stock actual: 0</div>
+    <input type="hidden" id="aj-tipo" value="entrada">
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button type="button" id="aj-btn-ent" class="btn btn-primary" style="flex:1;justify-content:center" onclick="setAjusteTipo('entrada')"><i class="ti ti-arrow-down-left"></i> Entrada (+)</button>
+      <button type="button" id="aj-btn-sal" class="btn" style="flex:1;justify-content:center" onclick="setAjusteTipo('salida')"><i class="ti ti-arrow-up-right"></i> Salida (−)</button>
+    </div>
+    <div class="form-group"><label>Cantidad</label><input id="aj-cant" type="number" min="1" inputmode="numeric" placeholder="0"></div>
+    <div class="form-actions"><button class="btn btn-primary" onclick="guardarAjuste()"><i class="ti ti-check"></i> Guardar</button><button class="btn" onclick="closeModal('ajuste-modal')">Cancelar</button></div>
+  </div>
+</div>
+
 <div id="venta-modal" class="modal-overlay">
   <div class="modal">
     <div class="modal-header"><span class="modal-title">Registrar venta</span><button class="btn btn-sm" onclick="closeModal('venta-modal')"><i class="ti ti-x"></i></button></div>
@@ -1515,6 +1575,7 @@ async function sincronizar(silencioso) {
     status.textContent='Sync: '+new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
     if(!silencioso) toast('¡Datos actualizados!','ok');
     renderAll();
+    try{ if(document.getElementById('page-dashboard').classList.contains('active')) setTimeout(animarKPIs,100); }catch(e){}
   } catch(err) { setConexion(false); status.textContent='Error'; if(!silencioso) toast('Sin conexión con Sheet','error'); }
   btn.classList.remove('syncing');
   _syncEnCurso=false; _ultimoSync=Date.now();
@@ -1580,6 +1641,28 @@ function calcPlataforma(){
   set('plat-ivaval', usaIva?fmt(Math.round(ivaVal)):'—');
   set('plat-neto', fmt(Math.round(R)));
 }
+// ====== ANIMACIÓN DE CONTEO DE KPIs ======
+function animarKPIs(){
+  try{ if(matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(e){}
+  document.querySelectorAll('#page-dashboard .kpi-val').forEach(function(el){
+    var raw=(el.textContent||'').trim();
+    var m=raw.match(/^(\$?)\s*([\d.,]+)\s*(%?)$/);
+    if(!m) return;
+    var pref=m[1], suf=m[3];
+    var num=parseFloat(m[2].replace(/\./g,'').replace(',','.'));
+    if(!isFinite(num)||num<=0) return;
+    var dur=700, t0=performance.now();
+    function paso(t){
+      var k=Math.min(1,(t-t0)/dur), e=1-Math.pow(1-k,3);
+      var val=num*e;
+      var shown=suf==='%'?(Math.round(val*10)/10):Math.round(val);
+      el.textContent=pref+shown.toLocaleString('es-CO')+suf;
+      if(k<1) requestAnimationFrame(paso); else el.textContent=raw;
+    }
+    requestAnimationFrame(paso);
+  });
+}
+
 // ====== TEMA CLARO / OSCURO ======
 function aplicarTema(t){
   if(t==='light') document.documentElement.setAttribute('data-theme','light');
@@ -1897,6 +1980,8 @@ function show(page,el) {
   if(!el){ el=Array.prototype.find.call(document.querySelectorAll('.nav-item'),function(n){ return (n.getAttribute('onclick')||'').indexOf("show('"+page+"'")>-1; }); }
   if(el) el.classList.add('active');
   document.getElementById('page-title').textContent=el?el.textContent.trim():page;
+  var _subs={dashboard:'Resumen de tu negocio hoy',balance:'Resultados y ganancias del año',contador:'Pregúntale al contador sobre tus números',ceo:'Consejos y decisiones para tu negocio',asistente:'Tu asistente para cualquier duda',contabilidad:'Ingresos y egresos del negocio',cierre:'Cierra la venta del día',calculadora:'Precios, márgenes y comisiones',inventario:'Tus productos y su stock',compras:'Registra compras a proveedores',pedidos:'Pedidos a tus proveedores',rotacion:'Qué productos se mueven más',ventas:'Ventas del día',clientes:'Quién te debe y sus pagos',base:'Tu base de clientes',recompras:'A quién escribirle para que vuelva a comprar',facturador:'Crea facturas en PDF',market:'Sube productos a ADDI y Luegopago',tareas:'Tus pendientes'};
+  var _sb=document.getElementById('page-subtitle'); if(_sb) _sb.textContent=_subs[page]||'';
   closeSidebar();
   renderAll();
   if(page==='rotacion') cargarRotacion();
@@ -1910,6 +1995,7 @@ function show(page,el) {
     cargarNumFactura();
   }
   if(page==='balance'){ renderBalance(); }
+  if(page==='dashboard'){ setTimeout(animarKPIs, 60); }
   if(page==='market'){ calcMarket(); mkContar(); cargarSkuMarket(false); }
   if(page==='ceo'){
     if(!baseClientes||!baseClientes.length) cargarBaseClientes();
@@ -1954,7 +2040,7 @@ function renderInv() {
   else tb.innerHTML=slice.map(p=>{
     const bc=p.e==='OK'?'badge-ok':p.e==='REABASTECER'?'badge-warn':'badge-danger';
     const lb=p.e==='OK'?'En stock':p.e==='REABASTECER'?'Poco':'Agotado';
-    return `<tr><td class="pname" onclick="togglePname(this)" title="${p.n}">${p.n}</td><td style="color:var(--muted);font-size:11px">${p.s||'—'}</td><td>${p.p||'—'}</td><td><strong>${p.q}</strong></td><td>${fmt(p.c)}</td><td>${fmt(p.v)}</td><td><span class="badge ${bc}">${lb}</span></td></tr>`;
+    return `<tr><td class="pname" onclick="togglePname(this)" title="${p.n}">${p.n}</td><td style="color:var(--muted);font-size:11px">${p.s||'—'}</td><td>${p.p||'—'}</td><td onclick="abrirAjuste(${db.inv.indexOf(p)})" style="cursor:pointer;white-space:nowrap" title="Tocar para ajustar stock"><strong>${p.q}</strong> <i class="ti ti-pencil" style="font-size:11px;color:var(--mint)"></i></td><td>${fmt(p.c)}</td><td>${fmt(p.v)}</td><td><span class="badge ${bc}">${lb}</span></td></tr>`;
   }).join('');
   const pages=Math.ceil(total/PAGE_SIZE)||1;
   document.getElementById('inv-pag').innerHTML=`<span>${start+1}–${Math.min(start+PAGE_SIZE,total)} de ${total}</span><div class="pag-btns"><button onclick="invPage=0;renderInv()" ${invPage===0?'disabled':''}>«</button><button onclick="invPage--;renderInv()" ${invPage===0?'disabled':''}>‹</button><button onclick="invPage++;renderInv()" ${invPage>=pages-1?'disabled':''}>›</button><button onclick="invPage=${pages-1};renderInv()" ${invPage>=pages-1?'disabled':''}>»</button></div>`;
@@ -3772,6 +3858,39 @@ function cerrarEscaner() {
     scanHtml5QrCode.stop().then(function(){ scanHtml5QrCode.clear(); }).catch(function(){});
     scanHtml5QrCode = null;
   }
+}
+// ====== AJUSTAR STOCK (entrada F / salida G; la H se calcula sola) ======
+var ajusteIdx=-1;
+function setAjusteTipo(t){
+  document.getElementById('aj-tipo').value=t;
+  var be=document.getElementById('aj-btn-ent'), bs=document.getElementById('aj-btn-sal');
+  be.classList.toggle('btn-primary', t==='entrada');
+  bs.classList.toggle('btn-primary', t==='salida');
+}
+function abrirAjuste(idx){
+  var p=db.inv[idx]; if(!p) return;
+  ajusteIdx=idx;
+  document.getElementById('aj-nombre').textContent=p.n;
+  document.getElementById('aj-stock-actual').textContent='Stock actual: '+(p.q||0);
+  document.getElementById('aj-cant').value='';
+  setAjusteTipo('entrada');
+  openModal('ajuste-modal');
+  setTimeout(function(){ var c=document.getElementById('aj-cant'); if(c) c.focus(); },100);
+}
+async function guardarAjuste(){
+  var p=db.inv[ajusteIdx]; if(!p){ closeModal('ajuste-modal'); return; }
+  var cant=parseInt(document.getElementById('aj-cant').value)||0;
+  if(cant<=0){ toast('Pon una cantidad mayor a 0','warn'); return; }
+  var tipo=document.getElementById('aj-tipo').value;
+  // actualizar local (H = stock total)
+  p.q = tipo==='entrada' ? (p.q||0)+cant : Math.max(0,(p.q||0)-cant);
+  p.e = p.q<=0?'AGOTADO':p.q<=2?'REABASTECER':'OK';
+  save(); closeModal('ajuste-modal'); renderInv(); renderDash();
+  var r=await enviarASheet('ajustarStock',{sku:p.s||'',nombre:p.n,tipo:tipo,cantidad:cant});
+  if(r&&r.ok){
+    if(typeof r.stock==='number'){ p.q=r.stock; p.e=p.q<=0?'AGOTADO':p.q<=2?'REABASTECER':'OK'; save(); renderInv(); }
+    toast('✅ '+(tipo==='entrada'?'Entrada':'Salida')+' de '+cant+' registrada','ok');
+  } else { toast('⚠️ '+((r&&r.error)||'No se pudo registrar en el Sheet'),'error'); }
 }
 async function addProducto() {
   const n=document.getElementById('in-nom').value.trim();

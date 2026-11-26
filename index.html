@@ -1585,6 +1585,9 @@ async function sincronizar(silencioso) {
 // Evita que se pierdan datos al hacer varias cosas rápido (Apps Script atiende de a una).
 var _colaSheet = Promise.resolve();
 
+// Token de sesión (Firebase) para autenticar las peticiones que escriben/usan IA
+async function _tkn(){ try{ return (typeof fbAuth!=='undefined'&&fbAuth&&fbAuth.currentUser)?await fbAuth.currentUser.getIdToken():''; }catch(e){ return ''; } }
+
 function enviarASheet(accion, datos){
   // Encadena esta petición al final de la fila
   var tarea = _colaSheet.then(function(){ return _enviarUno(accion, datos); });
@@ -1600,6 +1603,7 @@ async function _enviarUno(accion, datos, intento){
   try {
     var params=new URLSearchParams({accion});
     Object.entries(datos).forEach(function(par){ var k=par[0],v=par[1]; if(v!==undefined&&v!==null) params.append(k,v); });
+    var _t=await _tkn(); if(_t) params.append('t',_t);
     var r=await fetch(SHEET_URL+'?'+params.toString(), {signal:control.signal}).then(function(res){return res.json();});
     clearTimeout(limite);
     if(r.ok){ if(!window._silencioSheet) toast('✅ Guardado','ok'); return true; }
@@ -1748,7 +1752,7 @@ async function extraerProductoIAapp(){
   toast('Organizando con IA... (unos segundos)','');
   var ctrl=new AbortController(); var t=setTimeout(function(){ ctrl.abort(); },45000);
   try{
-    var fd=new FormData(); fd.append('accion','extraerProductoIA'); fd.append('texto',txt);
+    var fd=new FormData(); fd.append('accion','extraerProductoIA'); fd.append('texto',txt); fd.append('t', await _tkn());
     var r=await fetch(SHEET_URL,{method:'POST',body:fd,signal:ctrl.signal}).then(function(x){return x.json();});
     clearTimeout(t);
     if(r&&r.ok&&r.producto){ llenarFormMarket(r.producto); toast('✅ Campos llenados, revísalos antes de guardar','ok'); }
@@ -1896,14 +1900,14 @@ async function subirFotoDesdeURL(){
   var tamSel=document.getElementById('mk-foto-tam'); var modo=tamSel?tamSel.value:'original';
   toast('Trayendo imagen del enlace...','');
   try{
-    var r=await fetch(SHEET_URL+'?accion=bajarImagen&url='+encodeURIComponent(url)).then(function(x){return x.json();});
+    var r=await fetch(SHEET_URL+'?accion=bajarImagen&t='+encodeURIComponent(await _tkn())+'&url='+encodeURIComponent(url)).then(function(x){return x.json();});
     if(!r||!r.ok){ toast('⚠️ '+((r&&r.error)||'No se pudo traer la imagen'),'error'); return; }
     if(!r.dataUrl){ toast('⚠️ Falta publicar la "Versión nueva" del Apps Script (la función de bajar imagen)','error'); return; }
     var jpg = (modo==='original') ? await forzarJpg(r.dataUrl) : await procesarFotoParaTam(r.dataUrl, modo);
     var cont=document.getElementById('mk-foto-prev-cont');
     if(cont){ var im=document.createElement('img'); im.src=jpg; im.style.cssText='max-width:100px;max-height:100px;border-radius:8px;border:1px solid var(--border);object-fit:cover'; cont.appendChild(im); }
     var nombre=(document.getElementById('mk-nombre').value||'producto')+'_url';
-    var fd=new FormData(); fd.append('accion','subirFoto'); fd.append('nombre',nombre); fd.append('img',jpg);
+    var fd=new FormData(); fd.append('accion','subirFoto'); fd.append('nombre',nombre); fd.append('img',jpg); fd.append('t', await _tkn());
     toast('Subiendo a Drive como JPG...','');
     var r2=await fetch(SHEET_URL,{method:'POST',body:fd}).then(function(x){return x.json();});
     if(r2&&r2.ok){
@@ -1927,7 +1931,7 @@ async function subirFotoMarket(input){
       var dataUrl=await procesarFotoParaTam(original, modo);
       if(cont){ var im=document.createElement('img'); im.src=dataUrl; im.style.cssText='max-width:100px;max-height:100px;border-radius:8px;border:1px solid var(--border);object-fit:cover'; cont.appendChild(im); }
       var nombre=(document.getElementById('mk-nombre').value||'producto')+'_'+(i+1);
-      var fd=new FormData(); fd.append('accion','subirFoto'); fd.append('nombre',nombre); fd.append('img',dataUrl);
+      var fd=new FormData(); fd.append('accion','subirFoto'); fd.append('nombre',nombre); fd.append('img',dataUrl); fd.append('t', await _tkn());
       var r=await fetch(SHEET_URL,{method:'POST',body:fd}).then(function(x){return x.json();});
       if(r&&r.ok){ links.push(r.directo||r.url); mostrarLinkFoto(r.url, r.directo, dataUrl, nombre); } else { toast('⚠️ Foto '+(i+1)+': '+((r&&r.error)||'no se pudo'),'error'); }
     }catch(e){ toast('No se pudo procesar la foto '+(i+1),'error'); }
@@ -2027,6 +2031,8 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 let invPage=0, contPage=0;
 const PAGE_SIZE=30;
 
+// Escapa HTML para evitar XSS al pintar datos del Sheet
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function renderInv() {
   const q=(document.getElementById('inv-search')?.value||'').toLowerCase().trim();
   const fe=document.getElementById('inv-filter-estado')?.value||'';
@@ -2040,7 +2046,7 @@ function renderInv() {
   else tb.innerHTML=slice.map(p=>{
     const bc=p.e==='OK'?'badge-ok':p.e==='REABASTECER'?'badge-warn':'badge-danger';
     const lb=p.e==='OK'?'En stock':p.e==='REABASTECER'?'Poco':'Agotado';
-    return `<tr><td class="pname" onclick="togglePname(this)" title="${p.n}">${p.n}</td><td style="color:var(--muted);font-size:11px">${p.s||'—'}</td><td>${p.p||'—'}</td><td onclick="abrirAjuste(${db.inv.indexOf(p)})" style="cursor:pointer;white-space:nowrap" title="Tocar para ajustar stock"><strong>${p.q}</strong> <i class="ti ti-pencil" style="font-size:11px;color:var(--mint)"></i></td><td>${fmt(p.c)}</td><td>${fmt(p.v)}</td><td><span class="badge ${bc}">${lb}</span></td></tr>`;
+    return `<tr><td class="pname" onclick="togglePname(this)" title="${esc(p.n)}">${esc(p.n)}</td><td style="color:var(--muted);font-size:11px">${esc(p.s||'—')}</td><td>${esc(p.p||'—')}</td><td onclick="abrirAjuste(${db.inv.indexOf(p)})" style="cursor:pointer;white-space:nowrap" title="Tocar para ajustar stock"><strong>${p.q}</strong> <i class="ti ti-pencil" style="font-size:11px;color:var(--mint)"></i></td><td>${fmt(p.c)}</td><td>${fmt(p.v)}</td><td><span class="badge ${bc}">${lb}</span></td></tr>`;
   }).join('');
   const pages=Math.ceil(total/PAGE_SIZE)||1;
   document.getElementById('inv-pag').innerHTML=`<span>${start+1}–${Math.min(start+PAGE_SIZE,total)} de ${total}</span><div class="pag-btns"><button onclick="invPage=0;renderInv()" ${invPage===0?'disabled':''}>«</button><button onclick="invPage--;renderInv()" ${invPage===0?'disabled':''}>‹</button><button onclick="invPage++;renderInv()" ${invPage>=pages-1?'disabled':''}>›</button><button onclick="invPage=${pages-1};renderInv()" ${invPage>=pages-1?'disabled':''}>»</button></div>`;
@@ -4625,6 +4631,7 @@ async function guardarFacClienteEnBase(){
 async function enviarASheetFull(accion, datos){
   var params=new URLSearchParams({accion});
   Object.entries(datos).forEach(function(par){ var k=par[0],v=par[1]; if(v!==undefined&&v!==null) params.append(k,v); });
+  var _t=await _tkn(); if(_t) params.append('t',_t);
   var control=new AbortController(); var limite=setTimeout(function(){ control.abort(); },25000);
   try{
     var r=await fetch(SHEET_URL+'?'+params.toString(),{signal:control.signal}).then(function(res){return res.json();});

@@ -1588,6 +1588,27 @@ var _colaSheet = Promise.resolve();
 // Token de sesión (Firebase) para autenticar las peticiones que escriben/usan IA
 async function _tkn(){ try{ return (typeof fbAuth!=='undefined'&&fbAuth&&fbAuth.currentUser)?await fbAuth.currentUser.getIdToken():''; }catch(e){ return ''; } }
 
+// Intercepta TODAS las peticiones al Sheet y les adjunta el token automáticamente (un solo punto)
+(function(){
+  if(window.__fetchParchado) return; window.__fetchParchado=true;
+  var _origFetch = window.fetch.bind(window);
+  window.fetch = async function(input, init){
+    try{
+      if(typeof input==='string' && typeof SHEET_URL!=='undefined' && SHEET_URL && input.indexOf(SHEET_URL)===0){
+        var t = await _tkn();
+        if(t){
+          if(init && init.body && typeof FormData!=='undefined' && init.body instanceof FormData){
+            if(!init.body.has('t')) init.body.append('t', t);
+          } else {
+            input += (input.indexOf('?')>-1?'&':'?') + 't=' + encodeURIComponent(t);
+          }
+        }
+      }
+    }catch(e){}
+    return _origFetch(input, init);
+  };
+})();
+
 function enviarASheet(accion, datos){
   // Encadena esta petición al final de la fila
   var tarea = _colaSheet.then(function(){ return _enviarUno(accion, datos); });

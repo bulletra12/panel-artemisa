@@ -1,7 +1,7 @@
 // Service Worker de Artemisa Belleza
 // Estrategia: la app (HTML/íconos) se guarda para abrir sin internet.
 // Las llamadas al Sheet y al chat SIEMPRE van a la red (datos frescos).
-const CACHE = 'artemisa-v73';
+const CACHE = 'artemisa-v74';
 const ASSETS = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/icon-180.png'];
 
 self.addEventListener('install', function(e){
